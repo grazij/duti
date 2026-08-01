@@ -88,6 +88,11 @@ Those macros feed `Makefile.in`'s `OPTOPTS` (`-isysroot`, `-arch` flags,
 `-mmacosx-version-min`); a current build produces a real 2-architecture Mach-O.
 Confirm with `vtool -show-build duti` — both slices should read `minos 11.0`.
 
+`--with-macosx-arches` overrides the arch flags (the Homebrew formula passes
+`-arch <native>`). Its assignment sits **after** the `case`, not before it like
+`--with-macosx-sdk`'s: the case writes `sdk_path`, but it writes `macosx_arches`
+directly and would clobber a value set ahead of it.
+
 ## Architecture
 
 Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
@@ -231,6 +236,42 @@ its tokenizer treats `+`, `-`, and `.` identically. Its version *detection* does
 not: `Version.detect` on `.../v1.5.5+grazij.1.tar.gz` returns `1`. A formula
 must therefore pin `version` explicitly and use a custom `livecheck` regex — see
 README.md.
+
+### Homebrew formula
+
+`Formula/duti.rb` is authored here and copied to `grazij/homebrew-tap` by hand;
+nothing pushes to the tap. Non-obvious parts:
+
+- The url percent-encodes `+` as `%2B`, and the tarball unpacks to
+  `duti-1.5.5-grazij.3/` — GitHub rewrites `+` to `-` in the directory name.
+- `autoconf` is a build dependency because `configure` is gitignored and so is
+  absent from a tag tarball.
+- `--with-macosx-sdk=#{MacOS.sdk_path}` is not optional. The configure default
+  is an `/Applications/Xcode.app/...` path, and a Homebrew user with only the
+  Command Line Tools has no such directory.
+- `--with-macosx-arches` is belt and braces: Homebrew's `cc` shim already drops
+  `-arch` flags unless a formula sets `ENV.permit_arch_flags`, so the build was
+  native-only even before the option existed. It stops `configure` from
+  emitting flags that get silently stripped, and halves the compile.
+- An unknown `--with-*` is only a configure *warning*, so a formula pointing at
+  a tag older than the option still builds — universal, then thinned by the shim.
+
+`./update-formula.sh [VERSION]` rewrites the url, version and sha256 lines. It
+curls the tag tarball to hash it, with a retry loop because that URL 404s for a
+few seconds after the tag is pushed. It is idempotent and exits 0 unchanged,
+which is what lets CI gate its commit on `git diff --quiet`.
+
+The workflow's `Update Homebrew formula` step must stay **after** `Commit and
+tag` — the tarball does not exist until the tag is pushed — and is placed after
+`GitHub Release` so a failure there cannot block shipping. Its commit is
+`chore(release): ... [skip ci]`: `chore` keeps it out of the next changelog and
+stops it triggering a release, `[skip ci]` stops the loop. A release therefore
+lands *two* commits on `master`.
+
+Verify a formula change with `brew style Formula/duti.rb`, then a throwaway tap
+(`brew tap-new grazij/dutitest --no-git`, copy the file in, `chmod 644` — audit
+rejects 600 — then `brew audit --strict` and `brew install --build-from-source`).
+`brew audit` takes a formula *name*, never a path.
 
 `make dist` and `make pkg` are release-only targets and shell out to `sudo`,
 `pkgbuild`, and `openssl`. `make pkg` still substitutes `_DUTI_BUILD_DATE` in

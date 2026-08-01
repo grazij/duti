@@ -30,7 +30,25 @@ without `-f` `autoreconf` skips it because `configure` is newer than
 On Apple silicon and Intel alike, `configure` produces a universal binary
 (x86_64 + arm64) with a macOS 11 deployment target, so the result runs on
 macOS 11 and later regardless of which release it was built on. Pass
-`--with-macosx-deployment-target=VERSION` to override.
+`--with-macosx-deployment-target=VERSION` to override, or
+`--with-macosx-arches="-arch arm64"` to build for one architecture only.
+
+
+Installing with Homebrew
+------------------------
+
+    brew install grazij/tap/duti
+
+`Formula/duti.rb` in this repository is the source of that formula; copy it to
+[grazij/homebrew-tap](https://github.com/grazij/homebrew-tap) to publish a new
+version. It builds only for the architecture running the build, which is why it
+passes `--with-macosx-arches`; released tarballs are still built universal.
+
+`./update-formula.sh [VERSION]` points the formula at a released tag, fetching
+the tarball to compute its checksum. VERSION defaults to `version.toml`. The tag
+must already be pushed — GitHub generates the tarball on demand, so the checksum
+does not exist before then. CI runs the script after every release, so the copy
+in this repository is normally already current.
 
 
 Usage
@@ -126,8 +144,8 @@ counter; CI calls it and does not bump the core.
 
 Homebrew orders these versions correctly (`1.5.5+grazij.1` sorts above
 `1.5.5`, and `.1` below `.2`), but its automatic version *detection* does not
-understand the `+` suffix and reads the version as `1`. A formula must pin the
-version explicitly:
+understand the `+` suffix and reads the version as `1`. `Formula/duti.rb`
+therefore pins the version explicitly:
 
 ```ruby
 version "1.5.5+grazij.1"
