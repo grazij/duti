@@ -1,5 +1,6 @@
-# Install as $XDG_CONFIG_HOME/duti/config, ~/.config/duti/config or
-# ~/.duti/config and run `duti`, or use `duti -c path/to/config`.
+# Drop into $XDG_CONFIG_HOME/duti/, ~/.config/duti/ or ~/.duti/ and run
+# `duti`, or use `duti -c path/to/config`. Every file in the directory is
+# applied in sorted filename order.
 #
 #   <bundle id>  <url scheme>
 #   <bundle id>  <uti | .ext | mime/type>  <role>

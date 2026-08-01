@@ -10,8 +10,7 @@ extern int		nroles;
 
 int		set_uti_handler( CFStringRef, CFStringRef, LSRolesMask );
 int		set_url_handler( CFStringRef, CFStringRef );
-int		fsethandler( char * );
-int		psethandler( char * );
+int		sethandler( char * );
 int		dirsethandler( char * );
 
 int		uti_handler_show( char *uti, int showall );

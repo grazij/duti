@@ -100,17 +100,20 @@ Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
 - **`duti.c`** — `main()`, `getopt` dispatch, and the `rtm[]` role table
   (`none`/`viewer`/`editor`/`shell`/`all` → `kLSRoles*`). Query flags (`-d`, `-l`,
   `-x`, `-u`, `-e`, `-V`) `return`/`exit` directly from the getopt loop. Everything
-  else falls through to source selection: it `stat()`s the config path and picks
-  one of three function pointers — `dirsethandler` (directory), `psethandler`
-  (`*.plist`), or `fsethandler` (settings file, or stdin when handed NULL).
-  Also holds `usage()`, `config_exists()`, and `default_config_path()`, all
-  `static`.
-- **`handler.c`** — all LaunchServices work. The three `*sethandler` readers each
-  parse their own format and converge on **`duti_handler_set(bid, type, role)`**,
-  the single choke point for every write path. Change behavior there, not in the
-  readers.
-- **`plist.c`** — reads an XML plist into a `CFDictionaryRef` via CFReadStream
-  (no Cocoa). `plist.h` defines the `DUTI*` plist keys.
+  else falls through to source selection: it `stat()`s the config path and calls
+  `dirsethandler` for a directory or `sethandler` for a regular file. Anything
+  else is an error. Also holds `usage()`, `config_exists()`, and
+  `default_config_path()`, all `static`.
+- **`handler.c`** — all LaunchServices work. **`sethandler(path)`** is the one
+  reader: it slurps the source (NULL means stdin), sniffs the format, and hands
+  off to the plist walker or the settings-line loop. Both converge on
+  **`duti_handler_set(bid, type, role)`**, the single choke point for every
+  write path. Change behavior there, not in the readers.
+- **`plist.c`** — reads a plist into a `CFDictionaryRef` from a byte buffer via
+  `CFReadStreamCreateWithBytesNoCopy` (no Cocoa). It takes bytes rather than a
+  path so one detection path serves files, directory members and stdin alike;
+  that is also what lets a plist be piped in. `plist.h` defines the `DUTI*`
+  plist keys.
 - **`util.c`** — `parseline()` (splits a settings line into 2 or 3 fields; its
   return value *is* the handler type), CFString↔C-string helpers, and `lladd()`,
   which builds a lexically sorted list so a settings directory applies in
@@ -145,14 +148,32 @@ Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
   to be enforced *before* that switch — that is why the `-c`/`-s` conflict check
   calls `usage()` and exits on the spot rather than doing `err++`. Setting `err`
   there would be silently ignored.
-- `fsethandler( NULL )` reads stdin. That is how `-c -` is implemented, and it
+- `sethandler( NULL )` reads stdin. That is how `-c -` is implemented, and it
   is the only remaining path to stdin now that the positional operand is gone.
+- Format detection is `looks_like_plist()`: leading whitespace, then `<?xml`,
+  `<plist` or `bplist00`. Filenames mean nothing — the old `*.plist` suffix rule
+  is gone, and it was wrong in both directions (a plist named anything else was
+  fed to the line parser, a settings file named `*.plist` to the plist parser).
+  `bplist00` is why a binary plist works; the suffix rule accepted one only by
+  accident of name.
+- Text input reaches the line loop through `fmemopen`, which is 10.13 and so
+  under the 11 deployment target. It rejects size 0, hence the empty-source
+  early return in `sethandler()` — an empty config is not an error.
+- A settings line is a comment when its first **non-whitespace** character is
+  `#`. Matching only column 0, as it used to, made `  # note` parse as two
+  fields and reach `duti_handler_set` as a URL-scheme write, reported as
+  `setting   # as handler for note:// URLs` with exit 0. A `#` mid-line is data.
 
 ### CLI surface (diverges from upstream)
 
 `-c config` replaced the positional `settings_path` operand, which was removed.
 See duti.1 for the interface; the non-obvious parts:
 
+- The defaults are **directories** — `$XDG_CONFIG_HOME/duti/`, `~/.config/duti/`,
+  `~/.duti/` — not files. No filename is privileged. A pre-existing
+  `~/.config/duti/config` still applies, as a member of the directory rather
+  than as the config itself; the flip side is that every *other* file there is
+  applied too, where before it was ignored.
 - `~/.config` is skipped when `XDG_CONFIG_HOME` is set and non-empty. That is
   what the XDG spec requires, not an oversight.
 - `-h` goes to stdout and exits 0; usage from an *error* goes to stderr with

@@ -41,12 +41,16 @@ usage( char *progname, FILE *out, int full )
 	return;
     }
 
-    fprintf( out, "\n  -c config  read settings from config "
-		  "( \"-\" reads standard input ).\n" );
+    fprintf( out, "\n  -c config  read settings from config: a settings "
+		  "file, a plist, a\n" );
+    fprintf( out, "             directory of either, or \"-\" for "
+		  "standard input. the\n" );
+    fprintf( out, "             format is detected from the content, "
+		  "not the name.\n" );
     fprintf( out, "             without -c, duti reads the first of\n" );
-    fprintf( out, "             $XDG_CONFIG_HOME/duti/config, "
-		  "~/.config/duti/config,\n" );
-    fprintf( out, "             or ~/.duti/config that exists.\n" );
+    fprintf( out, "             $XDG_CONFIG_HOME/duti/, ~/.config/duti/, "
+		  "or ~/.duti/\n" );
+    fprintf( out, "             that exists.\n" );
     fprintf( out, "  -d uti     print the default handler for uti.\n" );
     fprintf( out, "  -e ext     print every UTI claiming filename "
 		  "extension ext.\n" );
@@ -94,7 +98,7 @@ default_config_path( void )
 
     xdg = getenv( "XDG_CONFIG_HOME" );
     if ( xdg != NULL && *xdg != '\0' ) {
-	if ( config_exists( cpath, sizeof( cpath ), xdg, "/duti/config" )) {
+	if ( config_exists( cpath, sizeof( cpath ), xdg, "/duti" )) {
 	    return( cpath );
 	}
     }
@@ -105,13 +109,12 @@ default_config_path( void )
 
     /* per the XDG spec, ~/.config applies only when XDG_CONFIG_HOME is unset */
     if ( xdg == NULL || *xdg == '\0' ) {
-	if ( config_exists( cpath, sizeof( cpath ), home,
-			    "/.config/duti/config" )) {
+	if ( config_exists( cpath, sizeof( cpath ), home, "/.config/duti" )) {
 	    return( cpath );
 	}
     }
 
-    if ( config_exists( cpath, sizeof( cpath ), home, "/.duti/config" )) {
+    if ( config_exists( cpath, sizeof( cpath ), home, "/.duti" )) {
 	return( cpath );
     }
 
@@ -124,10 +127,8 @@ main( int ac, char *av[] )
     struct stat		st;
     int			c, err = 0;
     int			set = 0;
-    int			( *handler_f )( char * );
     char		*path = NULL;
     char		*cfgpath = NULL;
-    char		*p;
 
     extern int		optind;
     extern char		*optarg;
@@ -217,9 +218,9 @@ main( int ac, char *av[] )
     }
 
     if ( cfgpath != NULL ) {
-	/* POSIX guideline 13: "-" is stdin, which fsethandler reads on NULL */
+	/* POSIX guideline 13: "-" is stdin, which sethandler reads on NULL */
 	if ( strcmp( cfgpath, "-" ) == 0 ) {
-	    return( fsethandler( NULL ));
+	    return( sethandler( NULL ));
 	}
 	path = cfgpath;
     } else if (( path = default_config_path()) == NULL ) {
@@ -227,31 +228,19 @@ main( int ac, char *av[] )
 	exit( 1 );
     }
 
-    /* by default, read from a FILE stream */
-    handler_f = fsethandler;
-
     if ( stat( path, &st ) != 0 ) {
 	fprintf( stderr, "stat %s: %s\n", path, strerror( errno ));
 	exit( 2 );
     }
     switch ( st.st_mode & S_IFMT ) {
     case S_IFDIR:	/* directory of settings files */
-	handler_f = dirsethandler;
-	break;
+	return( dirsethandler( path ));
 
-    case S_IFREG:	/* settings file or plist */
-	if (( p = strrchr( path, '.' )) != NULL ) {
-	    p++;
-	    if ( strcmp( p, "plist" ) == 0 ) {
-		handler_f = psethandler;
-	    }
-	}
-	break;
+    case S_IFREG:	/* settings file or plist, told apart by content */
+	return( sethandler( path ));
 
     default:
 	fprintf( stderr, "%s: not a supported settings path\n", path );
 	exit( 1 );
     }
-
-    return( handler_f( path ));
 }
