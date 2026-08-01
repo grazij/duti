@@ -24,17 +24,13 @@ Requires autoconf (`brew install autoconf`) — it is not part of the Xcode
 command line tools and may be absent on a fresh machine.
 
 **After changing `version.toml`, run `autoreconf -if`, not `autoreconf -i`.**
-`AC_INIT` pulls the version in through `m4_esyscmd_s`, which autoconf evaluates
-when it *generates* `configure`. Plain `autoreconf` skips autoconf entirely
-because `configure` is newer than `configure.ac` — `version.toml` is not in its
-dependency graph — so the old version stays baked into `configure` and into the
-binary. `./configure` alone is likewise not enough. This is easy to miss because
-nothing errors; `duti -V` just silently reports the previous version.
+`AC_INIT` reads the version via `m4_esyscmd_s` at autoconf time, and plain
+`autoreconf` skips autoconf because `configure` is newer than `configure.ac` —
+`version.toml` is not in its dependency graph. `./configure` alone is likewise
+not enough. Nothing errors; `duti -V` silently reports the previous version.
 
-Note also that `autoreconf -i` rewrites `config.guess`, `config.sub`, and
-`install-sh` to whatever versions the local autoconf ships, which shows up as
-thousands of lines of unrelated diff. Revert those unless you actually mean to
-update them.
+`autoreconf -i` also rewrites `config.guess`, `config.sub` and `install-sh`,
+producing thousands of lines of unrelated diff. Revert those.
 
 CI (`.github/workflows/makefile.yml`) runs `tests/test-changelog.sh`, then
 `autoreconf -if && ./configure && make` on `macos-latest`, for both pushes to
@@ -42,26 +38,19 @@ CI (`.github/workflows/makefile.yml`) runs `tests/test-changelog.sh`, then
 `github.event_name == 'push'`, so a pull request gets tests and a build and
 nothing else.
 
-The **C code has no test suite** — verification there means a clean build plus
-manual invocation (`./duti -x jpg`, `./duti -d public.html`, `./duti -h`,
-`./duti -c -`). `tests/test-changelog.sh` covers only `make-changelog.sh`, and
-deliberately runs against **this repository's real commit history** rather than
-a fixture: the bug it guards against was invisible to a fixture of well-formed
-conventional commits, because such a fixture encodes the same assumption as the
-bug. It asserts by commit hash and derives its expectations from `git log`, so
-it cannot drift out of step with the repo.
+The **C code has no test suite** — verification means a clean build plus manual
+invocation (`./duti -x jpg`, `./duti -d public.html`, `./duti -h`, `./duti -c -`).
 
-It pins `FORK_POINT=8b5b9a0` (upstream master at the point this fork diverged)
-as the range baseline — a SHA rather than `upstream/master`, since CI has no
-upstream remote. It is an ancestor of `master`, so the `fetch-depth: 0` clone
-always has it.
+`tests/test-changelog.sh` covers `make-changelog.sh` only. It runs against the
+repo's **real history** rather than a fixture, because the bug it guards against
+was invisible to a fixture of well-formed conventional commits — such a fixture
+encodes the same assumption as the bug. It asserts by commit hash with
+expectations derived from `git log`, so it cannot drift. `FORK_POINT=8b5b9a0` is
+pinned as a SHA, not `upstream/master`, since CI has no upstream remote. T7/T8
+use a detached worktree to get a range not ending at `HEAD`.
 
-T7 and T8 need a range that does not end at `HEAD`, and `make-changelog.sh`
-always ranges `<since>..HEAD`. They use a detached `git worktree` at a real
-historical commit (`9c05250`) rather than inventing synthetic commits.
-
-Every behaviour here is mutation-checked, and a change to `make-changelog.sh`
-should be too — a green suite that has never been seen to fail is worth nothing:
+Changes to `make-changelog.sh` should be mutation-checked — a suite never seen
+to fail is worth nothing:
 
 | revert this fix | and this fails |
 |---|---|
@@ -156,46 +145,28 @@ Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
 
 ### CLI surface (diverges from upstream)
 
-- **`-c config`** replaced the positional `settings_path` operand, which was
-  removed. `-` means stdin, per POSIX Utility Syntax Guideline 13.
-- With no `-c`, `default_config_path()` returns the first of
-  `$XDG_CONFIG_HOME/duti/config`, `~/.config/duti/config`, `~/.duti/config`
-  that exists, or NULL. `~/.config` is deliberately skipped when
-  `XDG_CONFIG_HOME` is set and non-empty — that is what the XDG spec requires,
-  not an oversight. NULL means usage on stderr, exit 1.
-- **`-h` prints to stdout and exits 0.** Usage from a command-line *error* still
-  goes to stderr with exit 1. Both come from the same `usage( progname, FILE * )`,
-  so the stream is the caller's choice — do not hardcode `stderr` in it.
-- `-?` was considered and deliberately **not** added. An unknown option still
-  reaches the error path and prints usage on stderr. (In zsh a bare `-?` is a
-  glob anyway and never reaches the program.)
+`-c config` replaced the positional `settings_path` operand, which was removed.
+See duti.1 for the interface; the non-obvious parts:
+
+- `~/.config` is skipped when `XDG_CONFIG_HOME` is set and non-empty. That is
+  what the XDG spec requires, not an oversight.
+- `-h` goes to stdout and exits 0; usage from an *error* goes to stderr with
+  exit 1. `usage()` takes a `FILE *` for that reason — do not hardcode `stderr`.
+- `-?` was deliberately not added.
 
 ### Known gaps worth knowing before "fixing" them
 
-- **The build is warning-free. Keep it that way** —
-  `make 2>&1 | grep -c warning:` should print `0`, and any warning at all is
-  now a regression rather than noise to be filtered.
-
-  It got there two ways. `plist.c` genuinely moved to
-  `CFPropertyListCreateWithStream`. The four remaining deprecated Launch
-  Services calls are wrapped in *scoped* `#pragma clang diagnostic push` /
-  `ignored "-Wdeprecated-declarations"` / `pop` at the call site:
-  `LSCopyAllHandlersForURLScheme` and `LSCopyDefaultHandlerForURLScheme` in
-  `uti_handler_show()`, `LSGetApplicationForInfo` and `LSCopyDisplayNameForURL`
-  in `duti_default_app_for_extension()`. The scoping is the point — do **not**
-  collapse them into a file-wide pragma or an `OPTOPTS`
-  `-Wno-deprecated-declarations`, which would hide future deprecations too.
-  Their replacements are all `NSWorkspace` methods, so taking them means
-  Objective-C and AppKit; upstream issue #29 also establishes that migrating
-  does *not* fix the `-54` errors people hit.
-
-- `UTTypeConformsTo`, `UTTypeCreatePreferredIdentifierForTag`,
-  `UTTypeCopyDescription` and the `kUTType*` constants are deprecated as of
-  macOS 12, but **do not warn here**, because the deployment target is 11 and
-  clang only reports a deprecation once the target reaches the deprecating
-  release. An IDE or language server that ignores `-mmacosx-version-min` will
-  show them as warnings anyway; that is a tooling artifact, not a build issue.
-  Raising the deployment target past 11 would make all ten of them real.
+- **The build is warning-free** — `make 2>&1 | grep -c warning:` prints `0`,
+  so any warning is a regression. Four deprecated Launch Services calls carry
+  *scoped* `#pragma clang diagnostic` blocks at the call site. Keep them scoped:
+  a file-wide pragma or `-Wno-deprecated-declarations` in `OPTOPTS` would hide
+  future deprecations too. Their replacements are `NSWorkspace` methods, so
+  taking them means Objective-C and AppKit, and upstream issue #29 shows it does
+  *not* fix the `-54` errors.
+- The `UTType*` calls are deprecated as of macOS 12 but **do not warn**, since
+  the deployment target is 11 and clang only reports a deprecation once the
+  target reaches it. An LSP ignoring `-mmacosx-version-min` will flag them
+  anyway; that is a tooling artifact. Raising the target past 11 makes them real.
 - `autoreconf` also warns that `AC_CANONICAL_SYSTEM`, `AC_HELP_STRING`, and
   `AC_ERROR` are obsolete. Harmless with current autoconf; likewise expected.
 
@@ -230,53 +201,30 @@ replaces it: it groups conventional-commit subjects since the last `v*` tag,
 prepends a section to `CHANGELOG.md`, prints the section for release notes, and
 exits 1 when nothing release-worthy has landed.
 
-Two things about `make-changelog.sh` that were learned the hard way, both of
-which produced a *plausible but wrong* changelog rather than an error:
+Three constraints in `make-changelog.sh`, each of which once produced a
+*plausible but wrong* changelog rather than an error:
 
-- It reads `git log` with `--pretty=tformat:`, not `--pretty=format:`. The
-  latter omits the trailing newline, which makes `while read` silently drop the
-  **last** commit in the range — hiding itself whenever that commit happens not
-  to match the section being collected.
-- It has an **"Other Changes"** bucket that catches every non-merge commit not
-  already reported and not `chore`. Do not remove it. Most of this fork's
-  history predates conventional commits (`Add support for macOS 14, 15, and 26`,
-  `Add validation for dynamic UTI registration`, …). Collecting only
-  `feat`/`fix`/`perf` dropped 12 of the 16 commits from the first release — the
-  entire substantive delta over upstream — and nothing reported an error.
+- `--pretty=tformat:`, never `format:` — the latter omits the trailing newline,
+  so `while read` silently drops the last commit in range.
+- The **"Other Changes"** bucket catches every non-`chore` commit not already
+  reported. Do not remove it: most of this fork's history predates conventional
+  commits, and collecting only `feat`/`fix`/`perf` dropped 12 of 16 commits from
+  the first release, silently.
+- **Notes content and release triggering are separate decisions.** Notes list
+  every non-`chore` commit; only breaking/`feat`/`fix`/`perf`/untyped trigger a
+  release. Untyped must trigger — this fork's real work is mostly untyped
+  subjects. Suppressing `docs`/`ci` triggering by dropping them from
+  `collect_other` recreates the silent-drop bug; T8 catches that.
 
-**What appears in the notes and what triggers a release are separate
-decisions.** Conflating them gives you one bug or the other, so the script
-answers them independently:
-
-- *Notes* include every non-`chore` commit in range — `docs`, `ci`, `test`,
-  `style`, `build`, `refactor` included. Nothing disappears.
-- *Triggering* requires something breaking, a `feat`/`fix`/`perf`, or a commit
-  with **no conventional type at all**. A run of pure `docs`/`ci`/`test`
-  commits exits 1 and rides along in the next real release.
-
-That last clause is load-bearing: this fork's substantive history is mostly
-untyped subjects, so treating untyped as non-triggering would strand real work
-unreleased. The obvious-looking shortcut — stopping `docs`/`ci` from triggering
-by excluding them from `collect_other` — recreates the original silent-drop bug,
-and is exactly what T8 exists to catch.
-
-`entry()` strips the `type: ` prefix only when `is_conventional()` confirms
-there is one, so an untyped subject containing a colon is not truncated.
-
-It also **refuses to run** when there is no `v*` tag and no explicit baseline,
-exiting 2. There is deliberately no "walk all history" fallback: this repo's
-history reaches back through all of upstream's, so an unbounded range describes
-15 years of someone else's commits. Nor is "most recent reachable tag of any
-pattern" usable — upstream's `duti-1.5.2` through `duti-1.5.4` tags are *not*
-ancestors of this branch, so `git describe` without `--match` lands on
-`duti-1.5.1` from 2012. For a one-off regeneration, name the baseline:
+It exits 2 when there is no `v*` tag and no baseline. There is deliberately no
+"walk all history" fallback — this repo's history includes all of upstream's.
+Nor is any-recent-tag usable: upstream's `duti-1.5.2`–`1.5.4` are not ancestors
+of this branch, so `git describe` without `--match` lands on `duti-1.5.1`. To
+regenerate a past release, name the baseline:
 
 ```sh
 ./make-changelog.sh 1.5.5+grazij.1 CHANGELOG.md upstream/master
 ```
-
-The workflow distinguishes exit 1 ("nothing to release", skip) from any other
-nonzero (a real failure, fail the job). Keep that distinction if you touch it.
 
 Homebrew orders these versions correctly (`1.5.5+grazij.1` > `1.5.5`), because
 its tokenizer treats `+`, `-`, and `.` identically. Its version *detection* does
@@ -290,21 +238,10 @@ README.md.
 its `.TH` line — leave it alone during normal development. `duti.1` is groff
 `man` macros, not `mdoc`.
 
-CI cuts releases automatically from conventional commit messages on every push
-to `master`. The order in `.github/workflows/makefile.yml` matters:
-
-1. **Prepare release** — `bump-fork-version.sh`, then `make-changelog.sh`. If
-   the latter exits 1, the bump is rolled back with `git checkout -- version.toml`
-   and the release is skipped. Nothing is pushed yet.
-2. **Configure / Build / Verify** — must come *after* the bump, since `AC_INIT`
-   resolves the version at autoconf time, and *before* the tag, so a broken
-   build cannot be released.
-3. **Commit and tag** — commits `version.toml` + `CHANGELOG.md` with `[skip ci]`
-   in the message. Without that marker the push to `master` retriggers this same
-   workflow and loops.
-4. **GitHub Release** — `softprops/action-gh-release` with the tag and the
-   changelog section from step 1.
-
-The job needs `permissions: contents: write` and `fetch-depth: 0`; the default
-shallow clone has no tags, so the changelog range would be wrong. Nothing fires
-from a topic branch or a pull request.
+CI releases on every push to `master`. Step order in
+`.github/workflows/makefile.yml` is load-bearing: prepare (bump + changelog,
+pushing nothing) → build → commit and tag → release. The bump must precede
+`Configure` because `AC_INIT` resolves the version at autoconf time, and the tag
+must follow the build so a broken build cannot ship. The release commit carries
+`[skip ci]`; without it the push to `master` retriggers the workflow and loops.
+Needs `contents: write` and `fetch-depth: 0`. Nothing fires from a branch or PR.

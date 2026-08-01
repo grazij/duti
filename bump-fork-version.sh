@@ -1,12 +1,8 @@
 #!/bin/bash
 #
 # Increment the fork counter in version.toml and print the new version.
-#
-# The version is <upstream core>+<fork>.<counter>, e.g. 1.5.5+grazij.1.
-# The core tracks whatever upstream last released and is changed by hand
-# only; this script moves the counter and nothing else. It refuses to
-# guess when the version is not in that shape, so a hand-edit mistake
-# fails the release rather than silently renumbering.
+# <upstream core>+<fork>.<counter>, e.g. 1.5.5+grazij.1 -- the core moves by
+# hand only. Refuses to guess if the version is not in that shape.
 
 set -euo pipefail
 

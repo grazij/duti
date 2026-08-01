@@ -1,33 +1,11 @@
-# duti config
+# Install as $XDG_CONFIG_HOME/duti/config, ~/.config/duti/config or
+# ~/.duti/config and run `duti`, or use `duti -c path/to/config`.
 #
-# Install as one of:
-#   $XDG_CONFIG_HOME/duti/config
-#   ~/.config/duti/config
-#   ~/.duti/config
-# then just run `duti`. Or point at it directly: `duti -c path/to/config`.
+#   <bundle id>  <url scheme>
+#   <bundle id>  <uti | .ext | mime/type>  <role>
 #
-# Blank lines and lines beginning with # are ignored.
-#
-# Two fields set a URL scheme handler:
-#     <bundle id>   <url scheme>
-#
-# Three fields set a content type handler:
-#     <bundle id>   <type>   <role>
-#
-# <type> may be a UTI (public.html), a filename extension (.md or md),
-# or a MIME type (text/html). <role> is one of:
-#     all      every role
-#     viewer   read and display
-#     editor   modify and save (implies viewer)
-#     shell    execute
-#     none     no opening, but supplies an icon
-#
-# Find an application's bundle id with:
-#     osascript -e 'id of app "Safari"'
-#
-# Note: a type nothing has registered resolves to a dynamic UTI (dyn.*),
-# which Launch Services refuses to bind. duti reports that rather than
-# failing with a bare error -50.
+# Roles: all, viewer, editor (implies viewer), shell, none (icon only).
+# Bundle ids: osascript -e 'id of app "Safari"'
 
 # --- web ---
 com.apple.Safari	public.html	all

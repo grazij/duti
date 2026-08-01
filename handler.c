@@ -379,10 +379,9 @@ uti_handler_show( char *uti, int showall )
 	if (( cfhandlers = LSCopyAllRoleHandlersForContentType(
 				cfuti, kLSRolesAll )) == NULL ) {
 	    /*
-	     * deprecated in 10.15 in favour of -[NSWorkspace
-	     * URLsForApplicationsToOpenURL:]. taking the replacement
-	     * would mean pulling in Objective-C and AppKit, so we keep
-	     * the C API and silence the warning at the call site only.
+	     * the replacements for the deprecated LS* calls below are all
+	     * NSWorkspace methods, which would mean Objective-C and AppKit.
+	     * silenced per call site so new deprecations still surface.
 	     */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -414,10 +413,6 @@ uti_handler_show( char *uti, int showall )
     } else {
 	if (( cfhandler = LSCopyDefaultRoleHandlerForContentType(
 				cfuti, kLSRolesAll )) == NULL ) {
-	    /*
-	     * deprecated in 10.15 in favour of -[NSWorkspace
-	     * URLForApplicationToOpenURL:]. see the note above.
-	     */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	    if (( cfhandler = LSCopyDefaultHandlerForURLScheme(
@@ -612,10 +607,6 @@ duti_default_app_for_extension( char *ext )
 	return( rc );
     }
 
-    /*
-     * deprecated in 10.10 in favour of -[NSWorkspace
-     * URLForApplicationToOpenContentType:]. see the note above.
-     */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     err = LSGetApplicationForInfo( kLSUnknownType, kLSUnknownCreator, cf_ext,
@@ -627,10 +618,6 @@ duti_default_app_for_extension( char *ext )
 	goto duti_extension_cleanup;
     }
 
-    /*
-     * deprecated in 10.11 in favour of the kCFURLLocalizedNameKey
-     * URL resource property. see the note above.
-     */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     err = LSCopyDisplayNameForURL( cf_app_url, &cf_app_name );

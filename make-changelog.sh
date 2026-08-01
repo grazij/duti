@@ -1,18 +1,9 @@
 #!/bin/bash
 #
-# Write a CHANGELOG.md section for a version from the commits since the
-# previous v* tag, and print that section body on stdout so the caller can
-# reuse it as release notes.
-#
 # usage: make-changelog.sh <version> [changelog] [since-ref]
 #
-# Exits 1, printing nothing, when no release-worthy commit has landed. The
-# workflow reads that as "no release this run". Exits 2 on a usage error,
-# including the case where no baseline can be determined -- see below.
-#
-# This replaces TriPSs/conventional-changelog-action, which cannot be used
-# here: it bumps the version with semver.inc(), which discards the +grazij.N
-# build metadata, and it offers no way to skip its own tagging.
+# Prepends a section to the changelog and prints it for use as release notes.
+# Exit 1: nothing worth releasing. Exit 2: usage error.
 
 set -euo pipefail
 
@@ -25,16 +16,10 @@ if [ -z "$version" ]; then
 	exit 2
 fi
 
-# Baseline for the commit range. An explicit since-ref wins; otherwise the
-# most recent v* tag.
-#
-# There is deliberately no "walk all history" fallback. This repo is a fork,
-# and its history reaches back through all of upstream's -- so before the
-# first v* tag existed, an unbounded range silently produced a changelog
-# describing 15 years of someone else's commits. Failing loudly and making
-# the caller name a baseline is the safer default. Note also that upstream's
-# duti-1.5.2 through duti-1.5.4 tags are not ancestors of this branch, so
-# "most recent reachable tag of any pattern" is not a usable fallback either.
+# No "walk all history" fallback: this fork's history includes all of
+# upstream's, so an unbounded range describes 15 years of someone else's
+# commits. Nor can we fall back to any-recent-tag -- upstream's duti-1.5.2
+# through 1.5.4 are not ancestors of this branch.
 if [ -z "$since" ]; then
 	since=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
 fi
@@ -51,14 +36,12 @@ fi
 
 range="$since..HEAD"
 
-# %h and %s for every non-merge commit in range. tformat: (not format:)
-# terminates each line with a newline; format: omits the final one, which
-# makes `while read` silently drop the last commit.
+# tformat: not format: -- format: omits the trailing newline, which makes
+# `while read` silently drop the last commit.
 log_range() {
 	git log "$range" --no-merges --pretty=tformat:'%h %s'
 }
 
-# subjects carrying the given conventional type, with optional (scope) and !
 collect() {
 	log_range | while IFS= read -r line; do
 		hash="${line%% *}"
@@ -73,7 +56,6 @@ collect() {
 
 ALL_TYPES="feat fix perf chore docs ci style test build refactor revert"
 
-# does subject $1 carry conventional type $2, with optional (scope) and !
 has_type() {
 	case "$1" in
 	"$2: "* | "$2!: "* | "$2("*"): "* | "$2("*")!: "*) return 0 ;;
@@ -81,7 +63,6 @@ has_type() {
 	return 1
 }
 
-# does subject $1 carry any recognised conventional type
 is_conventional() {
 	for t in $ALL_TYPES; do
 		if has_type "$1" "$t"; then
@@ -91,8 +72,8 @@ is_conventional() {
 	return 1
 }
 
-# render one entry, dropping the "type: " prefix only when there really is
-# one -- an untyped subject containing a colon must not be truncated
+# strip "type: " only when there is one, so an untyped subject containing a
+# colon is not truncated
 entry() {
 	if is_conventional "$1"; then
 		printf '* %s (%s)\n' "${1#*: }" "$2"
@@ -101,10 +82,8 @@ entry() {
 	fi
 }
 
-# Everything not already reported under Features, Bug Fixes or Performance,
-# and not release plumbing. Without this bucket, plain non-conventional
-# subjects -- which most of this fork's history uses -- vanish from the
-# changelog without a trace.
+# Catch-all. Without it, untyped subjects -- most of this fork's history --
+# vanish from the changelog silently.
 collect_other() {
 	log_range | while IFS= read -r line; do
 		hash="${line%% *}"
@@ -117,9 +96,6 @@ collect_other() {
 	done
 }
 
-# Commits with no recognised conventional type at all. Most of this fork's
-# history looks like this, and it is substantive work ("Add support for macOS
-# 14, 15, and 26"), so it counts as a reason to cut a release.
 collect_nonconventional() {
 	log_range | while IFS= read -r line; do
 		hash="${line%% *}"
@@ -130,7 +106,7 @@ collect_nonconventional() {
 	done
 }
 
-# breaking: ! before the colon, or a BREAKING CHANGE: footer in the body
+# ! before the colon, or a BREAKING CHANGE: footer
 collect_breaking() {
 	log_range | while IFS= read -r line; do
 		hash="${line%% *}"
@@ -167,23 +143,13 @@ if [ -z "$section" ]; then
 	exit 1
 fi
 
-# What appears in the notes and what justifies cutting a release are separate
-# questions, and conflating them causes one bug or the other.
-#
-# Notes are complete: every non-chore commit above, docs and ci included, so
-# nothing ever silently disappears again. But a run of pure docs, ci, test,
-# style, build or refactor commits is not on its own worth a release, so those
-# do not trigger one -- they ride along in the next real release instead.
-#
-# Anything breaking, any feat/fix/perf, and any commit with no conventional
-# type at all does trigger. That last clause matters here: this fork's
-# substantive history is mostly untyped subjects, and treating them as
-# non-triggering would strand real work unreleased.
+# Notes list everything; only these types justify cutting a release. Untyped
+# counts as substantive -- this fork's real work is mostly untyped subjects.
+# A docs/ci-only run rides along in the next real release.
 if [ -z "$(collect_breaking)$(collect feat)$(collect fix)$(collect perf)$(collect_nonconventional)" ]; then
 	exit 1
 fi
 
-# prepend the new section, keeping whatever is already in the file
 tmp=$(mktemp "${TMPDIR:-/tmp}/changelog.XXXXXX")
 trap 'rm -f "$tmp"' EXIT
 

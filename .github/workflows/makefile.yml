@@ -15,32 +15,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        # the changelog is generated from the commits since the last v* tag,
-        # so the shallow default clone is not enough
+        # changelog needs tags; the default shallow clone has none
         fetch-depth: 0
 
-    # Runs on pull requests too, and before Prepare release, so a regression
-    # in the changelog generator fails the job instead of cutting a release
-    # with commits silently missing from the notes.
+    # before Prepare release, so a regression fails the job instead of
+    # shipping a release with commits missing from the notes
     - name: Test changelog generator
       run: tests/test-changelog.sh
 
     - name: Install Autoconf
       run: brew install autoconf
 
-    # Bumps the +grazij.N counter and writes CHANGELOG.md, but pushes
-    # nothing. The version has to be settled before Configure, because
-    # AC_INIT reads version.toml through m4_esyscmd_s at autoconf time.
-    # If no release-worthy commit has landed, the bump is rolled back and
-    # the rest of the release is skipped.
+    # Must precede Configure: AC_INIT reads version.toml at autoconf time.
+    # Pushes nothing; rolls the bump back if there is nothing to release.
     - name: Prepare release
       id: release
       if: ${{ github.event_name == 'push' }}
       run: |
         set -euo pipefail
         version=$(./bump-fork-version.sh)
-        # exit 1 means "nothing to release"; anything else is a real failure
-        # (e.g. exit 2, no v* tag and no baseline) and must not be swallowed
+        # exit 1 = nothing to release; anything else is a real failure
         set +e
         notes=$(./make-changelog.sh "$version")
         rc=$?
@@ -62,9 +56,8 @@ jobs:
           echo "__DUTI_EOF__"
         } >> "$GITHUB_OUTPUT"
 
-    # -f is required: autoreconf otherwise skips autoconf because configure
-    # is newer than configure.ac, and the bumped version never reaches the
-    # binary.
+    # -f required: without it autoreconf skips autoconf (configure is newer
+    # than configure.ac) and the bumped version never reaches the binary
     - name: Configure
       run: autoreconf -if && ./configure
 
