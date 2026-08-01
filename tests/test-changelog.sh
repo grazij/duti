@@ -1,20 +1,11 @@
 #!/bin/bash
 #
-# Regression tests for make-changelog.sh, run against this repository's real
-# commit history.
+# Regression tests for make-changelog.sh.
 #
-# Why real history and not a fixture: the bug these guard against is that
-# make-changelog.sh once collected only feat/fix/perf, so the fork's many
-# non-conventional commits ("Add support for macOS 14, 15, and 26") vanished
-# from the release notes with no error at all. The first release listed 4 of
-# the 16 commits in the delta over upstream. A hand-built fixture of tidy
-# conventional commits cannot catch that, because the fixture encodes the same
-# assumption as the bug. Only the actual history does.
-#
-# Expectations are derived from git rather than hardcoded, so these cannot
-# silently drift out of step with the repository.
-#
-# usage: tests/test-changelog.sh
+# Deliberately run against this repo's real history: the bug these guard
+# against was that untyped commits were dropped silently, which a fixture of
+# tidy conventional commits cannot catch -- it shares the bug's assumption.
+# Expectations come from git, not hardcoded counts.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
@@ -23,9 +14,8 @@ SCRIPT="./make-changelog.sh"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/duti-changelog-test.XXXXXX")
 trap 'rm -rf "$TMP"; git worktree prune >/dev/null 2>&1' EXIT
 
-# upstream/master at the point this fork diverged. Pinned as a SHA rather than
-# a remote ref because CI has no upstream remote; it is an ancestor of master,
-# so a full-depth clone always has it.
+# upstream/master at the fork point. A SHA, not a remote ref: CI has no
+# upstream remote.
 FORK_POINT=8b5b9a0
 
 pass=0
@@ -34,8 +24,7 @@ fail=0
 ok()   { pass=$((pass + 1)); printf '  ok   %s\n' "$1"; }
 bad()  { fail=$((fail + 1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '       %s\n' "$2"; }
 
-# commits make-changelog is required to report: every non-merge commit in
-# range that is not release plumbing (chore)
+# every non-merge, non-chore commit in range
 releasable_hashes() {
 	git log "$1..HEAD" --no-merges --pretty=tformat:'%h %s' | while IFS= read -r line; do
 		case "${line#* }" in
@@ -68,7 +57,6 @@ else
 fi
 
 echo "=== T2: canary — the non-conventional commits that were silently dropped ==="
-# these have no conventional prefix at all and are the substance of the fork
 for h in 5c99a68 dd801ba 6543fc0; do
 	subject=$(git log -1 --format=%s "$h" 2>/dev/null)
 	if grep -q "($h)" "$TMP/t1.out" 2>/dev/null; then
@@ -119,8 +107,6 @@ echo "=== T6: no v* tag and no baseline exits 2, never walks all history ==="
 	cd "$TMP" || exit 2
 	git init -q repo && cd repo || exit 2
 	git config user.email t@t.t && git config user.name t
-	cp "$OLDPWD/../make-changelog.sh" . 2>/dev/null ||
-		cp /dev/null /dev/null
 	echo a >f && git add . && git commit -qm "feat: something"
 ) >/dev/null 2>&1
 cp "$SCRIPT" "$TMP/repo/make-changelog.sh"
@@ -133,14 +119,8 @@ else
 		"an unbounded range describes all of upstream's history"
 fi
 
-# T7/T8 need a range that does not end at HEAD, and make-changelog always
-# ranges <since>..HEAD. A detached worktree at a real historical commit gives
-# that without inventing synthetic commits.
-#
-#   c6b5ebb..349e86f  ci: only                   -> must not trigger
-#   022a003..349e86f  that plus untyped subjects -> must trigger, and the
-#                                                   ci: commit must still
-#                                                   be listed
+# make-changelog always ranges <since>..HEAD, so T7/T8 use a detached worktree
+# at a real commit to get a range that ends earlier.
 WT="$TMP/wt"
 if git worktree add --detach -q "$WT" 349e86f >/dev/null 2>&1; then
 	cp "$SCRIPT" "$WT/make-changelog.sh"

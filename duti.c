@@ -42,11 +42,7 @@ usage( char *progname, FILE *out )
     fprintf( out, "             or ~/.duti/config that exists.\n" );
 }
 
-/*
- * build dir + rest in buf and report whether the result exists.
- * returns 0 if the path would be truncated, so a too-long $HOME
- * can never produce a silently wrong path.
- */
+/* also returns 0 on truncation, so a long $HOME can't yield a wrong path */
     static int
 config_exists( char *buf, size_t bufsz, const char *dir, const char *rest )
 {
@@ -61,10 +57,7 @@ config_exists( char *buf, size_t bufsz, const char *dir, const char *rest )
     return( stat( buf, &st ) == 0 );
 }
 
-/*
- * first existing config in XDG order. returns NULL if none is found,
- * which the caller treats as "nothing to do, show usage".
- */
+/* first existing config in XDG order, or NULL */
     static char *
 default_config_path( void )
 {
@@ -82,11 +75,7 @@ default_config_path( void )
 	return( NULL );
     }
 
-    /*
-     * ~/.config is the XDG spec's own default for an unset or empty
-     * XDG_CONFIG_HOME, so only consult it when the variable gave us
-     * nothing.
-     */
+    /* per the XDG spec, ~/.config applies only when XDG_CONFIG_HOME is unset */
     if ( xdg == NULL || *xdg == '\0' ) {
 	if ( config_exists( cpath, sizeof( cpath ), home,
 			    "/.config/duti/config" )) {
@@ -127,7 +116,7 @@ main( int ac, char *av[] )
 	case 'e':	/* UTI declarations for extension */
 		return( duti_utis_for_extension( optarg ));
 
-	case 'h':	/* help goes to stdout and exits successfully */
+	case 'h':	/* help: stdout, exit 0 */
 	    usage( av[ 0 ], stdout );
 	    exit( 0 );
 
@@ -160,18 +149,14 @@ main( int ac, char *av[] )
 
     nroles = sizeof( rtm ) / sizeof( rtm[ 0 ] );
 
-    /*
-     * -s takes its arguments from the command line, -c from a file.
-     * this must be caught before the switch below, whose -s cases
-     * return without ever consulting err.
-     */
+    /* must precede the switch: its -s cases return without checking err */
     if ( set && cfgpath != NULL ) {
 	usage( av[ 0 ], stderr );
 	exit( 1 );
     }
 
     switch (( ac - optind )) {
-    case 0 :	/* -c, or the default config */
+    case 0 :
 	if ( set ) {
 	    err++;
 	}
@@ -193,7 +178,7 @@ main( int ac, char *av[] )
 	err++;
 	break;
 
-    default :	/* error, including the removed settings_path operand */
+    default :
 	err++;
 	break;
     }
@@ -204,10 +189,7 @@ main( int ac, char *av[] )
     }
 
     if ( cfgpath != NULL ) {
-	/*
-	 * POSIX utility syntax guideline 13: "-" names standard input.
-	 * fsethandler reads stdin when handed a NULL path.
-	 */
+	/* POSIX guideline 13: "-" is stdin, which fsethandler reads on NULL */
 	if ( strcmp( cfgpath, "-" ) == 0 ) {
 	    return( fsethandler( NULL ));
 	}
