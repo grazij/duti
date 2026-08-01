@@ -1,3 +1,18 @@
+## 1.5.5+grazij.5
+
+### BREAKING CHANGES
+
+* detect config format from content, not filename (901f489)
+
+### Features
+
+* detect config format from content, not filename (901f489)
+* list every option in duti -h (37b47ec)
+
+### Other Changes
+
+* stop the formula comment naming a version (702e96e)
+
 ## 1.5.5+grazij.4
 
 ### Features
