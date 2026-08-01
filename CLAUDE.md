@@ -267,6 +267,10 @@ README.md.
 `Formula/duti.rb` is authored here and copied to `grazij/homebrew-tap` by hand;
 nothing pushes to the tap. Non-obvious parts:
 
+- **homebrew-core ships its own `duti` (1.5.4), so the bare name resolves
+  there.** `brew reinstall duti` installs upstream over this fork — the tell is
+  `duti -V` printing `INTERNAL`, upstream's `AC_INIT` placeholder. Always
+  qualify: `grazij/tap/duti`.
 - The url percent-encodes `+` as `%2B`, and the tarball unpacks to
   `duti-1.5.5-grazij.3/` — GitHub rewrites `+` to `-` in the directory name.
 - `autoconf` is a build dependency because `configure` is gitignored and so is
