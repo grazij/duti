@@ -2,6 +2,7 @@ Makefile
 a.out
 autom4te.cache
 /config.h
+/duti
 config.log
 config.status
 configure
