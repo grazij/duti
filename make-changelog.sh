@@ -71,6 +71,36 @@ collect() {
 	done
 }
 
+ALL_TYPES="feat fix perf chore docs ci style test build refactor revert"
+
+# does subject $1 carry conventional type $2, with optional (scope) and !
+has_type() {
+	case "$1" in
+	"$2: "* | "$2!: "* | "$2("*"): "* | "$2("*")!: "*) return 0 ;;
+	esac
+	return 1
+}
+
+# does subject $1 carry any recognised conventional type
+is_conventional() {
+	for t in $ALL_TYPES; do
+		if has_type "$1" "$t"; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+# render one entry, dropping the "type: " prefix only when there really is
+# one -- an untyped subject containing a colon must not be truncated
+entry() {
+	if is_conventional "$1"; then
+		printf '* %s (%s)\n' "${1#*: }" "$2"
+	else
+		printf '* %s (%s)\n' "$1" "$2"
+	fi
+}
+
 # Everything not already reported under Features, Bug Fixes or Performance,
 # and not release plumbing. Without this bucket, plain non-conventional
 # subjects -- which most of this fork's history uses -- vanish from the
@@ -79,13 +109,24 @@ collect_other() {
 	log_range | while IFS= read -r line; do
 		hash="${line%% *}"
 		subject="${line#* }"
-		case "$subject" in
-		"feat: "* | "feat!: "* | "feat("*"): "* | "feat("*")!: "*) ;;
-		"fix: "* | "fix!: "* | "fix("*"): "* | "fix("*")!: "*) ;;
-		"perf: "* | "perf!: "* | "perf("*"): "* | "perf("*")!: "*) ;;
-		"chore: "* | "chore!: "* | "chore("*"): "* | "chore("*")!: "*) ;;
-		*) printf '* %s (%s)\n' "${subject#*: }" "$hash" ;;
-		esac
+		if has_type "$subject" feat || has_type "$subject" fix ||
+			has_type "$subject" perf || has_type "$subject" chore; then
+			continue
+		fi
+		entry "$subject" "$hash"
+	done
+}
+
+# Commits with no recognised conventional type at all. Most of this fork's
+# history looks like this, and it is substantive work ("Add support for macOS
+# 14, 15, and 26"), so it counts as a reason to cut a release.
+collect_nonconventional() {
+	log_range | while IFS= read -r line; do
+		hash="${line%% *}"
+		subject="${line#* }"
+		if ! is_conventional "$subject"; then
+			entry "$subject" "$hash"
+		fi
 	done
 }
 
@@ -123,6 +164,22 @@ append "Performance" "$(collect perf)"
 append "Other Changes" "$(collect_other)"
 
 if [ -z "$section" ]; then
+	exit 1
+fi
+
+# What appears in the notes and what justifies cutting a release are separate
+# questions, and conflating them causes one bug or the other.
+#
+# Notes are complete: every non-chore commit above, docs and ci included, so
+# nothing ever silently disappears again. But a run of pure docs, ci, test,
+# style, build or refactor commits is not on its own worth a release, so those
+# do not trigger one -- they ride along in the next real release instead.
+#
+# Anything breaking, any feat/fix/perf, and any commit with no conventional
+# type at all does trigger. That last clause matters here: this fork's
+# substantive history is mostly untyped subjects, and treating them as
+# non-triggering would strand real work unreleased.
+if [ -z "$(collect_breaking)$(collect feat)$(collect fix)$(collect perf)$(collect_nonconventional)" ]; then
 	exit 1
 fi
 

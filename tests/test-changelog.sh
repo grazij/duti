@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.." || exit 2
 
 SCRIPT="./make-changelog.sh"
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/duti-changelog-test.XXXXXX")
-trap 'rm -rf "$TMP"' EXIT
+trap 'rm -rf "$TMP"; git worktree prune >/dev/null 2>&1' EXIT
 
 # upstream/master at the point this fork diverged. Pinned as a SHA rather than
 # a remote ref because CI has no upstream remote; it is an ancestor of master,
@@ -131,6 +131,54 @@ if [ "$rc" -eq 2 ]; then
 else
 	bad "expected exit 2, got $rc" \
 		"an unbounded range describes all of upstream's history"
+fi
+
+# T7/T8 need a range that does not end at HEAD, and make-changelog always
+# ranges <since>..HEAD. A detached worktree at a real historical commit gives
+# that without inventing synthetic commits.
+#
+#   0c21a8e..9c05250  ci: + docs: only            -> must not trigger
+#   4b40008..9c05250  those plus untyped subjects -> must trigger, and the
+#                                                    docs/ci commits must
+#                                                    still be listed
+WT="$TMP/wt"
+if git worktree add --detach -q "$WT" 9c05250 >/dev/null 2>&1; then
+	cp "$SCRIPT" "$WT/make-changelog.sh"
+
+	echo "=== T7: docs/ci alone does not trigger a release ==="
+	( cd "$WT" && ./make-changelog.sh 9.9.9-test CL7.md 0c21a8e ) \
+		>"$TMP/t7.out" 2>&1
+	rc=$?
+	if [ "$rc" -eq 1 ] && [ ! -s "$TMP/t7.out" ]; then
+		ok "exit 1, no release cut for docs+ci only"
+	else
+		bad "expected exit 1 for a docs/ci-only range, got $rc" \
+			"$(head -3 "$TMP/t7.out")"
+	fi
+
+	echo "=== T8: ...but docs/ci still appear when a release IS triggered ==="
+	( cd "$WT" && ./make-changelog.sh 9.9.9-test CL8.md 4b40008 ) \
+		>"$TMP/t8.out" 2>&1
+	rc=$?
+	if [ "$rc" -ne 0 ]; then
+		bad "expected exit 0 for a range containing untyped commits, got $rc"
+	else
+		# 9c05250 is ci:, 1545d27 and 7f4b44f are docs:
+		absent=""
+		for h in 9c05250 1545d27 7f4b44f; do
+			grep -q "($h)" "$TMP/t8.out" || absent="$absent $h"
+		done
+		if [ -n "$absent" ]; then
+			bad "non-triggering commits missing from the notes:$absent" \
+				"suppressing the release trigger must not suppress the entry"
+		else
+			ok "ci/docs commits listed even though they cannot trigger alone"
+		fi
+	fi
+
+	git worktree remove --force "$WT" >/dev/null 2>&1
+else
+	bad "could not create a worktree at 9c05250 (shallow clone?)"
 fi
 
 printf '\n  %d passed, %d failed\n' "$pass" "$fail"

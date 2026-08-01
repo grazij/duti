@@ -56,11 +56,19 @@ as the range baseline — a SHA rather than `upstream/master`, since CI has no
 upstream remote. It is an ancestor of `master`, so the `fetch-depth: 0` clone
 always has it.
 
-Both tests were mutation-checked: reintroducing the missing "Other Changes"
-bucket fails T1/T2 with the 12 dropped commits named, and restoring the
-unbounded-history fallback fails T6. If you change `make-changelog.sh`, confirm
-the suite still fails when the fix is reverted — a green suite that cannot fail
-is worth nothing.
+T7 and T8 need a range that does not end at `HEAD`, and `make-changelog.sh`
+always ranges `<since>..HEAD`. They use a detached `git worktree` at a real
+historical commit (`9c05250`) rather than inventing synthetic commits.
+
+Every behaviour here is mutation-checked, and a change to `make-changelog.sh`
+should be too — a green suite that has never been seen to fail is worth nothing:
+
+| revert this fix | and this fails |
+|---|---|
+| remove the "Other Changes" bucket | T1, T2 — names the 12 dropped commits |
+| restore the unbounded-history fallback | T6 |
+| remove the release-trigger check | T7 |
+| exclude `docs`/`ci` from the notes to stop them triggering | T1 **and** T8 |
 
 ### macOS version gating
 
@@ -235,6 +243,25 @@ which produced a *plausible but wrong* changelog rather than an error:
   `Add validation for dynamic UTI registration`, …). Collecting only
   `feat`/`fix`/`perf` dropped 12 of the 16 commits from the first release — the
   entire substantive delta over upstream — and nothing reported an error.
+
+**What appears in the notes and what triggers a release are separate
+decisions.** Conflating them gives you one bug or the other, so the script
+answers them independently:
+
+- *Notes* include every non-`chore` commit in range — `docs`, `ci`, `test`,
+  `style`, `build`, `refactor` included. Nothing disappears.
+- *Triggering* requires something breaking, a `feat`/`fix`/`perf`, or a commit
+  with **no conventional type at all**. A run of pure `docs`/`ci`/`test`
+  commits exits 1 and rides along in the next real release.
+
+That last clause is load-bearing: this fork's substantive history is mostly
+untyped subjects, so treating untyped as non-triggering would strand real work
+unreleased. The obvious-looking shortcut — stopping `docs`/`ci` from triggering
+by excluding them from `collect_other` — recreates the original silent-drop bug,
+and is exactly what T8 exists to catch.
+
+`entry()` strips the `type: ` prefix only when `is_conventional()` confirms
+there is one, so an untyped subject containing a colon is not truncated.
 
 It also **refuses to run** when there is no `v*` tag and no explicit baseline,
 exiting 2. There is deliberately no "walk all history" fallback: this repo's
