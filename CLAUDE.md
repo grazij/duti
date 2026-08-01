@@ -269,9 +269,12 @@ stops it triggering a release, `[skip ci]` stops the loop. A release therefore
 lands *two* commits on `master`.
 
 Verify a formula change with `brew style Formula/duti.rb`, then a throwaway tap
-(`brew tap-new grazij/dutitest --no-git`, copy the file in, `chmod 644` — audit
-rejects 600 — then `brew audit --strict` and `brew install --build-from-source`).
-`brew audit` takes a formula *name*, never a path.
+(`brew tap-new grazij/dutitest --no-git`, copy the file in, then
+`brew audit --strict` and `brew install --build-from-source`). `brew audit`
+takes a formula *name*, never a path.
+
+`chmod 644` the copy. Git records mode 644, but a checkout or a `cp` under a
+077 umask produces 600, and both audit and style reject that.
 
 `make dist` and `make pkg` are release-only targets and shell out to `sudo`,
 `pkgbuild`, and `openssl`. `make pkg` still substitutes `_DUTI_BUILD_DATE` in
