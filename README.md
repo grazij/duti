@@ -19,6 +19,14 @@ Compiling
     make
     sudo make install
 
+`autoreconf` comes from autoconf, which is not part of the Xcode command line
+tools (`brew install autoconf`).
+
+On Apple silicon and Intel alike, `configure` produces a universal binary
+(x86_64 + arm64) with a macOS 11 deployment target, so the result runs on
+macOS 11 and later regardless of which release it was built on. Pass
+`--with-macosx-deployment-target=VERSION` to override.
+
 
 Usage
 -----
