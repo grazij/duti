@@ -23,32 +23,40 @@ make distclean     # also removes configure output, Makefile, version.c
 Requires autoconf (`brew install autoconf`) — it is not part of the Xcode
 command line tools and may be absent on a fresh machine.
 
-There is **no test suite**. CI (`.github/workflows/makefile.yml`) only runs
-`autoreconf -i && ./configure && make` on `macos-latest`. Verification means a
-clean build plus manual invocation (`./duti -x jpg`, `./duti -d public.html`).
+There is **no test suite**. CI (`.github/workflows/makefile.yml`) runs
+`autoreconf -i && ./configure && make` on `macos-latest` — on pushes to `master`
+only, not on pull requests — and then cuts a tag and a GitHub Release from
+conventional commits. Verification means a clean build plus manual invocation
+(`./duti -x jpg`, `./duti -d public.html`).
 
-### macOS version gating — the usual reason a build fails
+### macOS version gating
 
 `aclocal.m4` defines `DUTI_CHECK_SDK` and `DUTI_CHECK_DEPLOYMENT_TARGET`, which
-switch on `${host_os}` (`darwin8*` … `darwin25*`). An unmatched `darwin` version
-makes `configure` fail with "not a supported system". Adding a new macOS release
-means adding a `darwinNN*` case to **both** macros — SDK path plus `macosx_arches`
-in the first, deployment target string in the second (see commits "Adding support
-for latest macos" and "Add ventura version mapping"). The `--with-macosx-sdk` and
-`--with-macosx-deployment-target` flags do *not* work around a missing case: the
-`case` statement runs regardless and its `*)` branch raises `AC_MSG_ERROR` before
-either value is consulted. The case must be added.
+switch on `${host_os}`. Everything from Big Sur onward is handled by a single
+`darwin2*` case in both macros, so **a new macOS release needs no change here**:
+the SDK is always `MacOSX.sdk` with `-arch x86_64 -arch arm64`, and the
+deployment target is a fixed `11`.
 
-The newest mapped case is `darwin25` (macOS 26). Note the OS-version mapping is
-not `NN - 11` past Ventura — Apple jumped the marketing version from 15 to 26, so
-`darwin23`→`14`, `darwin24`→`15`, `darwin25`→`26`. Each host also gets its own
-version as the deployment target, so a binary built on macOS 26 carries
-`minos 26.0` and will not run on older systems.
+That 11 is deliberate and is *not* the host's own version. It is the floor the
+arm64 slice imposes — the source itself calls no Launch Services or `UTType` API
+newer than 10.5 — so the binary runs on macOS 11 and later no matter which
+release built it. The macro used to map each `darwinNN` to its own OS version,
+which meant a build on macOS 26 carried `minos 26.0` and ran nowhere else.
+Beware if reviving that scheme: the mapping is not `NN - 11` past Ventura, since
+Apple jumped the marketing version from 15 to 26 (`darwin23`→`14`,
+`darwin24`→`15`, `darwin25`→`26`).
+
+The pre-`darwin20` cases are untouched and still map each old host to its
+matching SDK and target. If one of *those* is ever unmatched, `configure` fails
+with "not a supported system", and neither `--with-macosx-sdk` nor
+`--with-macosx-deployment-target` works around it: the `case` runs regardless and
+its `*)` branch raises `AC_MSG_ERROR` before either value is consulted. The case
+must be added. (The deployment-target `case` has no `*)` branch — an unmatched
+host there silently yields an empty target instead.)
 
 Those macros feed `Makefile.in`'s `OPTOPTS` (`-isysroot`, `-arch` flags,
-`-mmacosx-version-min`). Universal builds are expressed as `macosx_arches`
-(`-arch x86_64 -arch arm64` for darwin20 and later); a current build produces a
-real 2-architecture Mach-O.
+`-mmacosx-version-min`); a current build produces a real 2-architecture Mach-O.
+Confirm with `vtool -show-build duti` — both slices should read `minos 11.0`.
 
 ## Architecture
 
@@ -87,6 +95,11 @@ Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
 - `set_uti_handler()` rejects anything failing `duti_is_conformant_uti()`
   (conformance to item/content/message/contact/archive), so LaunchServices never
   sees a nonsense type.
+- `duti_handler_set()` also rejects a coerced type that resolves to a **dynamic
+  UTI** (`dyn.` prefix). That is what the OS synthesises for an extension or MIME
+  type nothing has registered, and LaunchServices refuses to bind a handler to
+  one, failing with `paramErr` (-50). The check turns that into a readable error
+  and exit status 2.
 - `nroles` is a global assigned in `main()` *after* the getopt loop, and
   `handler.c` reads it as `extern`. Any new code path that reaches
   `duti_handler_set()` with a role must not bypass that assignment.
@@ -94,13 +107,15 @@ Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
 ### Known gaps worth knowing before "fixing" them
 
 - The LaunchServices and `UTType*` C APIs used throughout are deprecated in
-  recent macOS SDKs. A clean build on macOS 26 emits ~50 warnings, **all** of
+  recent macOS SDKs. A clean build on macOS 26 emits 10 warnings, **all** of
   them `-Wdeprecated-declarations` (`LSSetDefaultRoleHandlerForContentType`,
   `LSGetApplicationForInfo`, `LSCopyDisplayNameForURL`, `UTType*`,
   `CFPropertyListCreateFromStream`). That is the expected baseline, not new
-  breakage — any *other* warning class is worth investigating. Replacing these
-  means moving to `UniformTypeIdentifiers.framework` (macOS 11+) and would drop
-  support for the older deployment targets the autoconf macros still handle.
+  breakage — any *other* warning class is worth investigating
+  (`make 2>&1 | grep -oE '\[-W[a-z-]+\]' | sort | uniq -c` is the quick check).
+  Replacing these means moving to `UniformTypeIdentifiers.framework` (macOS 11+)
+  and would drop support for the older deployment targets the autoconf macros
+  still handle.
 - `autoreconf` also warns that `AC_CANONICAL_SYSTEM`, `AC_HELP_STRING`, and
   `AC_ERROR` are obsolete. Harmless with current autoconf; likewise expected.
 
@@ -114,9 +129,19 @@ GCC/Clang, so declare prototypes for anything non-`static`.
 
 ## Packaging / release
 
+`version.toml` is the single source of truth for the version. `configure.ac`
+reads it via `m4_esyscmd_s` into `AC_INIT`, and `Makefile.in`'s `dist` target
+greps it for `DISTDIR`. It replaced the old `VERSION` file (which read
+`internal`) and the `AC_INIT(dh, INTERNAL, ...)` placeholder. Bump it there and
+nowhere else; `./duti -V` prints whatever it says.
+
 `make dist` and `make pkg` are release-only targets and shell out to `sudo`,
-`pkgbuild`, and `openssl`. They rewrite `INTERNAL` in `configure.ac` to a date
-stamp and substitute `_DUTI_BUILD_DATE` in `duti.1` — which is why the checked-in
-`VERSION` reads `internal` and the man page carries a literal placeholder in its
-`.TH` line. Leave both alone during normal development. `duti.1` is groff `man`
-macros, not `mdoc`.
+`pkgbuild`, and `openssl`. `make pkg` still substitutes `_DUTI_BUILD_DATE` in
+`duti.1`, which is why the checked-in man page carries a literal placeholder in
+its `.TH` line — leave it alone during normal development. `duti.1` is groff
+`man` macros, not `mdoc`.
+
+CI cuts releases automatically from conventional commit messages on every push
+to `master` (`TriPSs/conventional-changelog-action` + `softprops/action-gh-release`),
+bumping `version.toml` and writing `CHANGELOG.md` as it goes. Nothing fires from
+a topic branch.
