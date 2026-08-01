@@ -110,10 +110,10 @@ main( int ac, char *av[] )
 
     if ( err ) {
 	fprintf( stderr, "usage: %s [ -hvV ] [ -d uti ] [ -l uti ] "
-			 "[ settings_path ]\n", av[ 0 ] );
+			 "[ -u uti ] [ settings_path ]\n", av[ 0 ] );
 	fprintf( stderr, "usage: %s -s bundle_id { uti | url_scheme } "
 			 "[ role ]\n", av[ 0 ] );
-	fprintf( stderr, "usage: %s -x extension\n", av[ 0 ] );
+	fprintf( stderr, "usage: %s { -e | -x } extension\n", av[ 0 ] );
 	exit( 1 );
     }
 
