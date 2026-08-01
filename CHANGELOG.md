@@ -1,3 +1,19 @@
+## 1.5.5+grazij.5
+
+### BREAKING CHANGES
+
+* detect config format from content, not filename (c513e75)
+
+### Features
+
+* detect config format from content, not filename (c513e75)
+* list every option in duti -h (82aa92e)
+
+### Other Changes
+
+* note the 644 requirement when copying the formula (e70ab97)
+* stop the formula comment naming a version (91eb5a4)
+
 ## 1.5.5+grazij.4
 
 ### Features
