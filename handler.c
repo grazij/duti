@@ -378,8 +378,17 @@ uti_handler_show( char *uti, int showall )
     if ( showall ) {
 	if (( cfhandlers = LSCopyAllRoleHandlersForContentType(
 				cfuti, kLSRolesAll )) == NULL ) {
+	    /*
+	     * deprecated in 10.15 in favour of -[NSWorkspace
+	     * URLsForApplicationsToOpenURL:]. taking the replacement
+	     * would mean pulling in Objective-C and AppKit, so we keep
+	     * the C API and silence the warning at the call site only.
+	     */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	    if (( cfhandlers = LSCopyAllHandlersForURLScheme(
 					cfuti )) == NULL ) {
+#pragma clang diagnostic pop
 		fprintf( stderr, "%s: no handlers\n", uti );
 		rc = 1;
 		goto uti_show_done;
@@ -405,8 +414,15 @@ uti_handler_show( char *uti, int showall )
     } else {
 	if (( cfhandler = LSCopyDefaultRoleHandlerForContentType(
 				cfuti, kLSRolesAll )) == NULL ) {
+	    /*
+	     * deprecated in 10.15 in favour of -[NSWorkspace
+	     * URLForApplicationToOpenURL:]. see the note above.
+	     */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	    if (( cfhandler = LSCopyDefaultHandlerForURLScheme(
 					cfuti )) == NULL ) {
+#pragma clang diagnostic pop
 		fprintf( stderr, "%s: no default handler\n", uti );
 		rc = 1;
 		goto uti_show_done;
@@ -596,15 +612,29 @@ duti_default_app_for_extension( char *ext )
 	return( rc );
     }
 
+    /*
+     * deprecated in 10.10 in favour of -[NSWorkspace
+     * URLForApplicationToOpenContentType:]. see the note above.
+     */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     err = LSGetApplicationForInfo( kLSUnknownType, kLSUnknownCreator, cf_ext,
 					kLSRolesAll, NULL, &cf_app_url );
+#pragma clang diagnostic pop
     if ( err != noErr ) {
 	fprintf( stderr, "Failed to get default application for "
 			 "extension \'%s\'\n", rext );
 	goto duti_extension_cleanup;
     }
 
+    /*
+     * deprecated in 10.11 in favour of the kCFURLLocalizedNameKey
+     * URL resource property. see the note above.
+     */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     err = LSCopyDisplayNameForURL( cf_app_url, &cf_app_name );
+#pragma clang diagnostic pop
     if ( err != noErr ) {
 	fprintf( stderr, "Failed to get display name\n" );
 	goto duti_extension_cleanup;

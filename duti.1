@@ -7,13 +7,13 @@
 [
 .BI \-hVv
 ] [
+.BI \-c\  config
+] [
 .BI \-d\  uti
 ] [
 .BI \-l\  uti
 ] [
 .BI \-u\  uti
-] [
-.I settings_path
 ]
 .sp
 .B duti
@@ -42,16 +42,34 @@
 .B duti
 sets applications as default handlers for Apple's Uniform Type Identifiers,
 for URL schemes, filename extensions, and MIME types.
+.sp
+Settings are read from the file named by
+.BI \-c\  config .
 If
-.I settings_path
-is not given on the command line,
-.B duti
-reads settings lines from stdin. If
-.I settings_path
+.I config
 is a directory,
 .B duti
-applies settings from the files in
-.IR settings_path .
+applies the settings from the files in it, in sorted filename order. If
+.I config
+is
+.BR \- ,
+.B duti
+reads settings lines from standard input.
+.sp
+If
+.BI \-c
+is not given,
+.B duti
+reads the first of
+.IR $XDG_CONFIG_HOME/duti/config ,
+.IR ~/.config/duti/config ,
+or
+.I ~/.duti/config
+that exists, and prints usage if none does. When
+.I XDG_CONFIG_HOME
+is set and non-empty,
+.I ~/.config
+is not consulted, per the XDG Base Directory Specification.
 .sp
 The
 .BI \-s
@@ -255,9 +273,10 @@ Retrieving default application information for an extension:
 .br
 .sp
 
-The following examples can be used by passing them to
-.B duti
-on stdin or as lines in a .duti file.
+The following examples can be used as lines in a config file, passed with
+.BI \-c\  config ,
+or piped in with
+.BR "duti -c -" .
 .sp
 Set TextEdit as the default viewer for Microsoft Word documents:
 .sp
@@ -285,6 +304,15 @@ Set Xcode as the default editor for C source files:
 .sp
 .SH OPTIONS
 .TP 19
+.BI \-c\  config
+read settings from
+.IR config ,
+which may be a settings file, a
+.I .plist
+file, a directory of either, or
+.B \-
+to read standard input.
+.TP 19
 .BI \-d\  uti
 display the default handler for
 .I uti
@@ -297,7 +325,8 @@ declaring the filename extension
 and exit.
 .TP 19
 .B \-h
-print usage and exit.
+print usage to standard output and exit 0. Usage caused by a command line
+error is printed to standard error instead, and exits 1.
 .TP 19
 .BI \-l\  uti
 display all handlers for
@@ -349,5 +378,19 @@ To get a list of UTIs on your system, you can use the following command line:
 .br
 		| awk '{ print $2 }' | sort | uniq
 .sp
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/duti/config
+default config, used when
+.I XDG_CONFIG_HOME
+is set and non-empty.
+.TP
+.I ~/.config/duti/config
+default config, used when
+.I XDG_CONFIG_HOME
+is unset or empty.
+.TP
+.I ~/.duti/config
+default config, used when neither of the above exists.
 .SH SEE ALSO
 plutil(1), plist(5)

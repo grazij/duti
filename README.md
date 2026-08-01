@@ -22,6 +22,11 @@ Compiling
 `autoreconf` comes from autoconf, which is not part of the Xcode command line
 tools (`brew install autoconf`).
 
+If you change `version.toml`, re-run `autoreconf -if`. The `-f` matters:
+`AC_INIT` reads the version through `m4_esyscmd_s` when `autoconf` runs, and
+without `-f` `autoreconf` skips it because `configure` is newer than
+`configure.ac` — leaving the old version compiled into the binary.
+
 On Apple silicon and Intel alike, `configure` produces a universal binary
 (x86_64 + arm64) with a macOS 11 deployment target, so the result runs on
 macOS 11 and later regardless of which release it was built on. Pass
@@ -31,22 +36,38 @@ macOS 11 and later regardless of which release it was built on. Pass
 Usage
 -----
 
-`duti` can read settings from four different sources:
+`duti` reads settings from a config given with `-c`, or from command-line
+arguments with `-s`:
 
-1. standard input
+    duti -c ~/my.duti      # a settings file
+    duti -c ~/my.plist     # an XML property list
+    duti -c ~/duti.d       # a directory of either
+    duti -c -              # standard input
+    duti                   # the default config (see below)
 
-1. a settings file
+    duti -s com.apple.Safari public.html all
 
-1. an XML [property list](https://en.wikipedia.org/wiki/Property_list) (plist)
+A settings line consists of an application's bundle ID, a UTI, and a string
+describing what role the application handles for the given UTI. The process is
+similar when `duti` processes an XML
+[property list](https://en.wikipedia.org/wiki/Property_list) (plist). If the
+config is a directory, `duti` applies settings from all valid settings files in
+it in sorted filename order, excluding files whose names begin with `.`
+(single dot).
 
-1. command-line arguments
+### Config file location
 
-A settings line, as read in cases 1 and 2, consists of an application's bundle
-ID, a UTI, and a string describing what role the application handles for the
-given UTI. The process is similar when `duti` processes a plist. If the path
-given to `duti` on the command-line is a directory, `duti` will apply settings
-from all valid settings files in that directory, excluding files whose names
-begin with `.` (single dot).
+With no `-c`, `duti` reads the first of these that exists:
+
+1. `$XDG_CONFIG_HOME/duti/config`
+1. `~/.config/duti/config`
+1. `~/.duti/config`
+
+If `XDG_CONFIG_HOME` is set and non-empty, `~/.config` is not consulted, per
+the XDG Base Directory Specification. If none of the three exists, `duti`
+prints usage and exits 1.
+
+See [`examples/config`](examples/config) for a commented starting point.
 
 `duti` can also print out the default application information for a given
 extension (`-x`). This feature is based on public domain source code posted
@@ -71,7 +92,7 @@ Examples
 * Set TextEdit as the default handler for Word documents:
 
     ```sh
-    echo 'com.apple.TextEdit   com.microsoft.word.doc all' | duti
+    echo 'com.apple.TextEdit   com.microsoft.word.doc all' | duti -c -
     ```
 
 * Set Finder as the default handler for ftp:// URLs:
@@ -91,11 +112,39 @@ Examples
     com.apple.Preview
     ```
 
+Versioning
+----------
+
+This is a fork. Versions are `<upstream version>+grazij.<counter>`, for example
+`1.5.5+grazij.1`. The core tracks whatever upstream last released and only ever
+changes by hand; each release here moves the counter. `version.toml` is the
+single source of truth — `configure.ac` reads it, `make dist` names the tarball
+from it, and `duti -V` prints it. `./bump-fork-version.sh` increments the
+counter; CI calls it and does not bump the core.
+
+### Homebrew
+
+Homebrew orders these versions correctly (`1.5.5+grazij.1` sorts above
+`1.5.5`, and `.1` below `.2`), but its automatic version *detection* does not
+understand the `+` suffix and reads the version as `1`. A formula must pin the
+version explicitly:
+
+```ruby
+version "1.5.5+grazij.1"
+
+livecheck do
+  url :stable
+  strategy :github_latest
+  regex(/v?(\d+(?:\.\d+)+\+grazij\.\d+)/i)
+end
+```
+
 Support
 -------
 
-`duti` is unsupported. You can submit bug reports and feature requests at
-the duti [GitHub project page](https://github.com/moretension/duti).
+`duti` is unsupported. Upstream (`moretension/duti`) has been dormant since
+July 2023; issues and pull requests for this fork belong on the
+[grazij/duti project page](https://github.com/grazij/duti).
 
 Related
 -------
