@@ -3,6 +3,8 @@ name: Makefile + Release CI
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
@@ -12,6 +14,7 @@ jobs:
 
     - name: Conventional Changelog Action
       id: changelog
+      if: ${{ github.event_name == 'push' }}
       uses: TriPSs/conventional-changelog-action@v6
       with:
         version-file: "./version.toml"
@@ -30,7 +33,7 @@ jobs:
 
     - name: GitHub Release
       uses: softprops/action-gh-release@v2
-      if: ${{ steps.changelog.outputs.skipped == 'false' }}
+      if: ${{ github.event_name == 'push' && steps.changelog.outputs.skipped == 'false' }}
       with:
         # output options: https://github.com/TriPSs/conventional-changelog-action#outputs
         tag_name: ${{ steps.changelog.outputs.tag }}

@@ -24,10 +24,11 @@ Requires autoconf (`brew install autoconf`) — it is not part of the Xcode
 command line tools and may be absent on a fresh machine.
 
 There is **no test suite**. CI (`.github/workflows/makefile.yml`) runs
-`autoreconf -i && ./configure && make` on `macos-latest` — on pushes to `master`
-only, not on pull requests — and then cuts a tag and a GitHub Release from
-conventional commits. Verification means a clean build plus manual invocation
-(`./duti -x jpg`, `./duti -d public.html`).
+`autoreconf -i && ./configure && make` on `macos-latest` for both pushes to
+`master` and pull requests against it. The changelog and release steps are gated
+on `github.event_name == 'push'`, so a pull request gets a build and nothing
+else. Verification means a clean build plus manual invocation (`./duti -x jpg`,
+`./duti -d public.html`).
 
 ### macOS version gating
 
@@ -144,4 +145,4 @@ its `.TH` line — leave it alone during normal development. `duti.1` is groff
 CI cuts releases automatically from conventional commit messages on every push
 to `master` (`TriPSs/conventional-changelog-action` + `softprops/action-gh-release`),
 bumping `version.toml` and writing `CHANGELOG.md` as it goes. Nothing fires from
-a topic branch.
+a topic branch or a pull request.
