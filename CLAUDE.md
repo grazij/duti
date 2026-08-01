@@ -93,9 +93,6 @@ Five translation units, linked as `version.o util.o plist.o handler.o duti.o`:
 
 ### Known gaps worth knowing before "fixing" them
 
-- `-e` (UTIs for an extension) and `-u` (UTI declaration) are implemented in
-  `duti.c`/`handler.c` but appear in neither the usage strings in `main()` nor
-  `duti.1`.
 - The LaunchServices and `UTType*` C APIs used throughout are deprecated in
   recent macOS SDKs. A clean build on macOS 26 emits ~50 warnings, **all** of
   them `-Wdeprecated-declarations` (`LSSetDefaultRoleHandlerForContentType`,
