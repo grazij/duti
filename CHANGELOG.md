@@ -1,3 +1,13 @@
+## 1.5.5+grazij.3
+
+### Features
+
+* separate release notes content from release triggering (6c5a89a)
+
+### Other Changes
+
+* add a changelog regression suite over the real repo history (e4292ee)
+
 ## 1.5.5+grazij.2
 
 ### Bug Fixes
