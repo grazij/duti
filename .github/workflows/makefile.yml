@@ -33,11 +33,20 @@ jobs:
       run: |
         set -euo pipefail
         version=$(./bump-fork-version.sh)
-        if ! notes=$(./make-changelog.sh "$version"); then
+        # exit 1 means "nothing to release"; anything else is a real failure
+        # (e.g. exit 2, no v* tag and no baseline) and must not be swallowed
+        set +e
+        notes=$(./make-changelog.sh "$version")
+        rc=$?
+        set -e
+        if [ "$rc" -eq 1 ]; then
           echo "no release-worthy commits since the last tag; skipping release"
           git checkout -- version.toml
           echo "released=false" >> "$GITHUB_OUTPUT"
           exit 0
+        elif [ "$rc" -ne 0 ]; then
+          echo "make-changelog.sh failed with status $rc" >&2
+          exit "$rc"
         fi
         echo "released=true" >> "$GITHUB_OUTPUT"
         echo "version=$version" >> "$GITHUB_OUTPUT"
