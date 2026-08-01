@@ -5,6 +5,10 @@ AC_DEFUN([DUTI_CHECK_SDK],
 	    AC_HELP_STRING([--with-macosx-sdk=DIR], [path to SDK]),
 	    macosx_sdk="$withval")
 
+    AC_ARG_WITH(macosx-arches,
+	    AC_HELP_STRING([--with-macosx-arches=FLAGS],
+	    [-arch flags, e.g. "-arch arm64"]), arches_override="$withval")
+
     sdk_path="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
     macosx_arches="-arch i386 -arch x86_64"
 
@@ -61,6 +65,11 @@ AC_DEFUN([DUTI_CHECK_SDK],
 
     if test -z "$macosx_sdk"; then
 	macosx_sdk=$sdk_path
+    fi
+
+    # after the case, which assigns macosx_arches unconditionally
+    if test -n "$arches_override"; then
+	macosx_arches="$arches_override"
     fi
 
     AC_SUBST(macosx_arches)
