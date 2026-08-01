@@ -11,6 +11,8 @@
 ] [
 .BI \-l\  uti
 ] [
+.BI \-u\  uti
+] [
 .I settings_path
 ]
 .sp
@@ -29,6 +31,9 @@
 [
 .I role
 ]
+.sp
+.B duti
+.BI \-e\  extension
 .sp
 .B duti
 .BI \-x\  extension
@@ -77,6 +82,18 @@ treats the second argument as a UTI.
 retrieves and prints out information describing the default application
 for files with the extension
 .IR extension .
+.sp
+.B duti
+.BI \-u
+prints the description of
+.I uti
+followed by its type declaration, while
+.B duti
+.BI \-e
+prints the identifier, description and type declaration of every UTI
+that claims the filename extension
+.IR extension .
+Neither option changes any handler.
 .sp
 See
 .B EXAMPLES
@@ -273,6 +290,12 @@ display the default handler for
 .I uti
 and exit.
 .TP 19
+.BI \-e\  extension
+display the identifier, description and type declaration of every UTI
+declaring the filename extension
+.I extension
+and exit.
+.TP 19
 .B \-h
 print usage and exit.
 .TP 19
@@ -283,6 +306,11 @@ and exit.
 .TP 19
 .BI \-s
 set the handler from data provided on the command line.
+.TP 19
+.BI \-u\  uti
+display the description and type declaration of
+.I uti
+and exit.
 .TP 19
 .B \-V
 print version number and exit.

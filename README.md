@@ -52,6 +52,10 @@ begin with `.` (single dot).
 extension (`-x`). This feature is based on public domain source code posted
 by Keith Alperin on the heliumfoot.com blog.
 
+`duti` can additionally report type declarations without changing any handler:
+`-u` prints the description and declaration of a UTI, and `-e` does the same for
+every UTI claiming a given filename extension.
+
 See the man page for additional usage details.
 
 
