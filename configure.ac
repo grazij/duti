@@ -1,6 +1,6 @@
 
 # Process with autoconf to create configure script
-m4_define([VERSION_NUMBER], m4_esyscmd_s([awk -F'=' '/^version/ {gsub(/"/, "", $2); print $2}' version.toml]))
+m4_define([VERSION_NUMBER], m4_esyscmd_s([awk -F'=' '/^version/ {gsub(/["[:space:]]/, "", $2); print $2}' version.toml]))
 AC_INIT([dh], [VERSION_NUMBER], [nosupport@all])
 AC_PREREQ(2.52)
 AC_COPYRIGHT([Copyright released into the public domain by Andrew Mortensen, January 2008.])
