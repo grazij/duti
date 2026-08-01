@@ -1,3 +1,9 @@
+## 1.5.5+grazij.2
+
+### Bug Fixes
+
+* stop the changelog silently dropping most of the fork's commits (09e51ff)
+
 ## 1.5.5+grazij.1
 
 ### BREAKING CHANGES
