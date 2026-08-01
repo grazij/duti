@@ -203,11 +203,34 @@ replaces it: it groups conventional-commit subjects since the last `v*` tag,
 prepends a section to `CHANGELOG.md`, prints the section for release notes, and
 exits 1 when nothing release-worthy has landed.
 
-If you touch `make-changelog.sh`, note that it reads `git log` with
-`--pretty=tformat:`, not `--pretty=format:`. The latter omits the trailing
-newline, which makes `while read` silently drop the **last** commit in the
-range — a bug that hides itself whenever that commit happens not to be a
-`feat`/`fix`.
+Two things about `make-changelog.sh` that were learned the hard way, both of
+which produced a *plausible but wrong* changelog rather than an error:
+
+- It reads `git log` with `--pretty=tformat:`, not `--pretty=format:`. The
+  latter omits the trailing newline, which makes `while read` silently drop the
+  **last** commit in the range — hiding itself whenever that commit happens not
+  to match the section being collected.
+- It has an **"Other Changes"** bucket that catches every non-merge commit not
+  already reported and not `chore`. Do not remove it. Most of this fork's
+  history predates conventional commits (`Add support for macOS 14, 15, and 26`,
+  `Add validation for dynamic UTI registration`, …). Collecting only
+  `feat`/`fix`/`perf` dropped 12 of the 16 commits from the first release — the
+  entire substantive delta over upstream — and nothing reported an error.
+
+It also **refuses to run** when there is no `v*` tag and no explicit baseline,
+exiting 2. There is deliberately no "walk all history" fallback: this repo's
+history reaches back through all of upstream's, so an unbounded range describes
+15 years of someone else's commits. Nor is "most recent reachable tag of any
+pattern" usable — upstream's `duti-1.5.2` through `duti-1.5.4` tags are *not*
+ancestors of this branch, so `git describe` without `--match` lands on
+`duti-1.5.1` from 2012. For a one-off regeneration, name the baseline:
+
+```sh
+./make-changelog.sh 1.5.5+grazij.1 CHANGELOG.md upstream/master
+```
+
+The workflow distinguishes exit 1 ("nothing to release", skip) from any other
+nonzero (a real failure, fail the job). Keep that distinction if you touch it.
 
 Homebrew orders these versions correctly (`1.5.5+grazij.1` > `1.5.5`), because
 its tokenizer treats `+`, `-`, and `.` identically. Its version *detection* does
