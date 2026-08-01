@@ -1,3 +1,13 @@
+## 1.5.5+grazij.4
+
+### Features
+
+* add a Homebrew formula and an on-demand updater (18102f1)
+
+### Other Changes
+
+* cut verbose comments and prose (4205a57)
+
 ## 1.5.5+grazij.3
 
 ### Features
