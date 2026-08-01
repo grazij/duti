@@ -6,8 +6,8 @@ class Duti < Formula
   sha256 "05ce8b8ffcbf17e2e7ba0d73fb8ad4ce36594cc45e58248dc6c203a124c954ab"
   license :public_domain
 
-  # Version.detect reads "1.5.5+grazij.3" as "1", so `version` above is pinned
-  # by hand and livecheck needs an explicit regex.
+  # Version.detect reads a "+grazij.N" tarball name as "1", so `version` above
+  # is pinned by hand and livecheck needs an explicit regex.
   livecheck do
     url :stable
     strategy :github_latest
