@@ -1,4 +1,4 @@
-int		read_plist( char *, CFDictionaryRef * );
+int		read_plist( const char *, size_t, const char *, CFDictionaryRef * );
 
 /* plist keys */
 #define DUTI_KEY_SETTINGS	CFSTR( "DUTISettings" )

@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
@@ -106,24 +107,76 @@ set_url_handler( CFStringRef bid, CFStringRef url_scheme )
     return(( int )rc );
 }
 
-    int
-fsethandler( char *spath )
+/* leading whitespace, then an XML or binary plist signature */
+    static int
+looks_like_plist( const char *buf, size_t len )
 {
-    FILE	*f = NULL;
+    size_t	i = 0;
+
+    while ( i < len && isspace(( unsigned char )buf[ i ] )) {
+	i++;
+    }
+
+    if ( len - i >= 8 && strncmp( buf + i, "bplist00", 8 ) == 0 ) {
+	return( 1 );
+    }
+    if ( len - i >= 5 && strncmp( buf + i, "<?xml", 5 ) == 0 ) {
+	return( 1 );
+    }
+    if ( len - i >= 6 && strncmp( buf + i, "<plist", 6 ) == 0 ) {
+	return( 1 );
+    }
+
+    return( 0 );
+}
+
+/*
+ * config sources are small, and reading one whole is what lets a single
+ * detection path serve a file, a directory member and standard input alike.
+ */
+    static char *
+slurp( FILE *f, const char *label, size_t *lenp )
+{
+    char	*buf = NULL, *nbuf;
+    size_t	len = 0, cap = 0, n;
+
+    for ( ;; ) {
+	if ( len == cap ) {
+	    cap = ( cap == 0 ) ? 8192 : cap * 2;
+	    if (( nbuf = realloc( buf, cap )) == NULL ) {
+		fprintf( stderr, "%s: %s\n", label, strerror( errno ));
+		free( buf );
+		return( NULL );
+	    }
+	    buf = nbuf;
+	}
+
+	n = fread( buf + len, 1, cap - len, f );
+	len += n;
+	if ( n == 0 ) {
+	    break;
+	}
+    }
+
+    if ( ferror( f )) {
+	fprintf( stderr, "%s: %s\n", label, strerror( errno ));
+	free( buf );
+	return( NULL );
+    }
+
+    *lenp = len;
+
+    return( buf );
+}
+
+    static int
+fsethandler_stream( FILE *f )
+{
     char	line[ MAXPATHLEN * 2 ];
-    char	*handler, *type, *role;
+    char	*handler, *type, *role, *p;
     char	**lineav = NULL;
     int		linenum = 0, rc = 0;
     int		len, htype;
-
-    if ( spath != NULL ) {
-	if (( f = fopen( spath, "r" )) == NULL ) {
-	    fprintf( stderr, "fopen %s: %s\n", spath, strerror( errno ));
-	    return( 1 );
-	}
-    } else {
-	f = stdin;
-    }
 
     while ( fgets( line, sizeof( line ), f ) != NULL ) {
 	linenum++;
@@ -135,11 +188,13 @@ fsethandler( char *spath )
 	}
 	line[ len - 1 ] = '\0';
 
-	/* skip blanks and comments */
-	if ( *line == '\0' || *line == '#' ) {
+	/* skip blanks and comments. a comment may be indented */
+	for ( p = line; isspace(( unsigned char )*p ); p++ )
+	    ;
+	if ( *p == '\0' || *p == '#' ) {
 	    continue;
 	}
-	
+
 	htype = parseline( line, &lineav );
 	switch ( htype ) {
 	case DUTI_TYPE_UTI_HANDLER:
@@ -169,16 +224,12 @@ fsethandler( char *spath )
 	perror( "fgets" );
 	rc = 1;
     }
-    if ( fclose( f ) != 0 ) {
-	perror( "fclose" );
-	rc = 1;
-    }
 
     return( rc );
 }
 
-    int
-psethandler( char *spath )
+    static int
+psethandler( const char *buf, size_t len, const char *label )
 {
     CFDictionaryRef	plist;
     CFArrayRef		dharray;
@@ -191,24 +242,18 @@ psethandler( char *spath )
     char		handler[ MAXPATHLEN ], type[ MAXPATHLEN ];
     char		crole[ 255 ];
 
-    if ( !spath ) {
-	fprintf( stderr, "%s: invalid argument supplied\n", __FUNCTION__ );
-	return( 1 );
-    }
-
-    if ( read_plist( spath, &plist ) != 0 ) {
-	fprintf( stderr, "%s: failed to read plist\n", __FUNCTION__ );
+    if ( read_plist( buf, len, label, &plist ) != 0 ) {
 	return( 1 );
     }
 
     if ( !plist ) {
-	fprintf( stderr, "%s: Invalid plist\n", __FUNCTION__ );
+	fprintf( stderr, "%s: invalid plist\n", label );
 	return( 1 );
     }
 
     if (( dharray = CFDictionaryGetValue( plist,
 			DUTI_KEY_SETTINGS )) == NULL ) {
-	fprintf( stderr, "%s is missing the settings array\n", spath );
+	fprintf( stderr, "%s is missing the settings array\n", label );
 	CFRelease( plist );
 	return( 1 );
     }
@@ -279,6 +324,61 @@ psethandler( char *spath )
     return( rc );
 }
 
+/* spath NULL reads standard input. the format comes from the content */
+    int
+sethandler( char *spath )
+{
+    FILE	*f, *mem;
+    char	*buf;
+    size_t	len = 0;
+    const char	*label = ( spath == NULL ) ? "standard input" : spath;
+    int		rc;
+
+    if ( spath == NULL ) {
+	f = stdin;
+    } else if (( f = fopen( spath, "r" )) == NULL ) {
+	fprintf( stderr, "fopen %s: %s\n", spath, strerror( errno ));
+	return( 1 );
+    }
+
+    buf = slurp( f, label, &len );
+
+    if ( spath != NULL && fclose( f ) != 0 ) {
+	perror( "fclose" );
+	free( buf );
+	return( 1 );
+    }
+    if ( buf == NULL ) {
+	return( 1 );
+    }
+
+    /* an empty source is not an error, and fmemopen may reject size 0 */
+    if ( len == 0 ) {
+	free( buf );
+	return( 0 );
+    }
+
+    if ( looks_like_plist( buf, len )) {
+	rc = psethandler( buf, len, label );
+	free( buf );
+	return( rc );
+    }
+
+    if (( mem = fmemopen( buf, len, "r" )) == NULL ) {
+	fprintf( stderr, "%s: %s\n", label, strerror( errno ));
+	free( buf );
+	return( 1 );
+    }
+    rc = fsethandler_stream( mem );
+    if ( fclose( mem ) != 0 ) {
+	perror( "fclose" );
+	rc = 1;
+    }
+    free( buf );
+
+    return( rc );
+}
+
     int
 dirsethandler( char *dirpath )
 {
@@ -288,9 +388,7 @@ dirsethandler( char *dirpath )
     struct ll		*cur, *tmp;
     struct stat		st;
     char		path[ MAXPATHLEN ];
-    char		*p;
     int			rc = 0;
-    int			( *dhandler_f )( char * );
 
     if (( d = opendir( dirpath )) == NULL ) {
 	fprintf( stderr, "opendir %s: %s\n", dirpath, strerror( errno ));
@@ -333,18 +431,10 @@ dirsethandler( char *dirpath )
     }
 
     for ( cur = head; cur != NULL; cur = tmp ) {
-	dhandler_f = fsethandler;
-	if (( p = strrchr( cur->l_path, '.' )) != NULL ) {
-	    p++;
-	    if ( strcmp( p, "plist" ) == 0 ) {
-		dhandler_f = psethandler;
-	    }
-	}
-
 	if ( verbose ) {
 	    printf( "Applying settings from %s\n", cur->l_path );
 	}
-	if ( dhandler_f( cur->l_path ) != 0 ) {
+	if ( sethandler( cur->l_path ) != 0 ) {
 	    rc = 1;
 	}
 

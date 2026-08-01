@@ -58,28 +58,38 @@ Usage
 arguments with `-s`:
 
     duti -c ~/my.duti      # a settings file
-    duti -c ~/my.plist     # an XML property list
+    duti -c ~/my.plist     # a property list
     duti -c ~/duti.d       # a directory of either
     duti -c -              # standard input
-    duti                   # the default config (see below)
+    duti                   # the default config directory (see below)
 
     duti -s com.apple.Safari public.html all
 
+The format is detected from the content, not the filename: a source whose
+first non-blank bytes are `<?xml`, `<plist` or `bplist00` is read as a
+property list, anything else as a settings file. So a directory may hold both
+kinds, and either kind may be piped in.
+
 A settings line consists of an application's bundle ID, a UTI, and a string
-describing what role the application handles for the given UTI. The process is
-similar when `duti` processes an XML
-[property list](https://en.wikipedia.org/wiki/Property_list) (plist). If the
-config is a directory, `duti` applies settings from all valid settings files in
-it in sorted filename order, excluding files whose names begin with `.`
-(single dot).
+describing what role the application handles for the given UTI. A line whose
+first non-blank character is `#` is a comment, and a blank line is ignored; a
+`#` anywhere else on a line is data. The process is similar when `duti`
+processes a [property list](https://en.wikipedia.org/wiki/Property_list)
+(plist), in either XML or binary form. If the config is a directory, `duti`
+applies settings from all valid settings files in it in sorted filename order,
+excluding files whose names begin with `.` (single dot).
 
 ### Config file location
 
-With no `-c`, `duti` reads the first of these that exists:
+With no `-c`, `duti` applies the first of these directories that exists:
 
-1. `$XDG_CONFIG_HOME/duti/config`
-1. `~/.config/duti/config`
-1. `~/.duti/config`
+1. `$XDG_CONFIG_HOME/duti/`
+1. `~/.config/duti/`
+1. `~/.duti/`
+
+Every file in it is applied, in sorted filename order, each read as whatever
+its content says it is. There is no privileged filename — an existing
+`~/.config/duti/config` still works, now as one member of that directory.
 
 If `XDG_CONFIG_HOME` is set and non-empty, `~/.config` is not consulted, per
 the XDG Base Directory Specification. If none of the three exists, `duti`

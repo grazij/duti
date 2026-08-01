@@ -43,7 +43,7 @@
 sets applications as default handlers for Apple's Uniform Type Identifiers,
 for URL schemes, filename extensions, and MIME types.
 .sp
-Settings are read from the file named by
+Settings are read from the path named by
 .BI \-c\  config .
 If
 .I config
@@ -54,17 +54,27 @@ applies the settings from the files in it, in sorted filename order. If
 is
 .BR \- ,
 .B duti
-reads settings lines from standard input.
+reads from standard input. Any other kind of path is an error.
+.sp
+.B duti
+tells a settings file from a property list by its content, not its name:
+a source whose first non-blank bytes are
+.IR <?xml ,
+.I <plist
+or
+.I bplist00
+is read as a property list, and anything else as a settings file. A
+directory may hold both kinds, and either kind may be piped in.
 .sp
 If
 .BI \-c
 is not given,
 .B duti
-reads the first of
-.IR $XDG_CONFIG_HOME/duti/config ,
-.IR ~/.config/duti/config ,
+reads the first of the directories
+.IR $XDG_CONFIG_HOME/duti/ ,
+.IR ~/.config/duti/ ,
 or
-.I ~/.duti/config
+.I ~/.duti/
 that exists, and prints usage if none does. When
 .I XDG_CONFIG_HOME
 is set and non-empty,
@@ -118,7 +128,13 @@ See
 below for usage cases.
 .sp
 .SH SETTINGS FILE
-A settings file is made up of lines with the following format:
+A line whose first non-blank character is
+.B #
+is a comment, and a blank line is ignored. A
+.B #
+elsewhere on a line is data, not a comment.
+.sp
+A settings file is otherwise made up of lines with the following format:
 .sp
 .br
 	app_id    UTI    role
@@ -159,12 +175,12 @@ would cause
 .B duti
 to set Firefox as the handler for "ftp://" URLs.
 .SH SETTINGS PLIST
-If the extension of the file given to
-.B duti
-is
-.IR \.plist ,
-.B duti
-treats the file as an XML property list (plist).
+A source whose first non-blank bytes are
+.IR <?xml ,
+.I <plist
+or
+.I bplist00
+is treated as a property list (plist), whatever it is named.
 The plist must contain a key-value pair, in which the key is "DUTISettings"
 and the value is an array of dictionaries. Each dictionary in the array
 contains three key-value pairs representing the application's bundle ID,
@@ -307,11 +323,9 @@ Set Xcode as the default editor for C source files:
 .BI \-c\  config
 read settings from
 .IR config ,
-which may be a settings file, a
-.I .plist
-file, a directory of either, or
+which may be a settings file, a property list, a directory of either, or
 .B \-
-to read standard input.
+to read standard input. The format is detected from the content.
 .TP 19
 .BI \-d\  uti
 display the default handler for
@@ -381,17 +395,17 @@ To get a list of UTIs on your system, you can use the following command line:
 .sp
 .SH FILES
 .TP
-.I $XDG_CONFIG_HOME/duti/config
-default config, used when
+.I $XDG_CONFIG_HOME/duti/
+default config directory, used when
 .I XDG_CONFIG_HOME
 is set and non-empty.
 .TP
-.I ~/.config/duti/config
-default config, used when
+.I ~/.config/duti/
+default config directory, used when
 .I XDG_CONFIG_HOME
 is unset or empty.
 .TP
-.I ~/.duti/config
-default config, used when neither of the above exists.
+.I ~/.duti/
+default config directory, used when neither of the above exists.
 .SH SEE ALSO
 plutil(1), plist(5)
