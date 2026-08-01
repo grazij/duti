@@ -1,9 +1,9 @@
 class Duti < Formula
   desc "Set default applications for document types and URL schemes on macOS"
   homepage "https://github.com/grazij/duti"
-  url "https://github.com/grazij/duti/archive/refs/tags/v1.5.5%2Bgrazij.3.tar.gz"
-  version "1.5.5+grazij.3"
-  sha256 "8e9a87566904b4a4f138a537b1d7ee42758023ccd487fbe18ba640b2496a9993"
+  url "https://github.com/grazij/duti/archive/refs/tags/v1.5.5%2Bgrazij.4.tar.gz"
+  version "1.5.5+grazij.4"
+  sha256 "05ce8b8ffcbf17e2e7ba0d73fb8ad4ce36594cc45e58248dc6c203a124c954ab"
   license :public_domain
 
   # Version.detect reads "1.5.5+grazij.3" as "1", so `version` above is pinned
