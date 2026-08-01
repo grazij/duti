@@ -36,12 +36,31 @@ Note also that `autoreconf -i` rewrites `config.guess`, `config.sub`, and
 thousands of lines of unrelated diff. Revert those unless you actually mean to
 update them.
 
-There is **no test suite**. CI (`.github/workflows/makefile.yml`) runs
-`autoreconf -if && ./configure && make` on `macos-latest` for both pushes to
+CI (`.github/workflows/makefile.yml`) runs `tests/test-changelog.sh`, then
+`autoreconf -if && ./configure && make` on `macos-latest`, for both pushes to
 `master` and pull requests against it. The release steps are gated on
-`github.event_name == 'push'`, so a pull request gets a build and nothing else.
-Verification means a clean build plus manual invocation (`./duti -x jpg`,
-`./duti -d public.html`).
+`github.event_name == 'push'`, so a pull request gets tests and a build and
+nothing else.
+
+The **C code has no test suite** — verification there means a clean build plus
+manual invocation (`./duti -x jpg`, `./duti -d public.html`, `./duti -h`,
+`./duti -c -`). `tests/test-changelog.sh` covers only `make-changelog.sh`, and
+deliberately runs against **this repository's real commit history** rather than
+a fixture: the bug it guards against was invisible to a fixture of well-formed
+conventional commits, because such a fixture encodes the same assumption as the
+bug. It asserts by commit hash and derives its expectations from `git log`, so
+it cannot drift out of step with the repo.
+
+It pins `FORK_POINT=8b5b9a0` (upstream master at the point this fork diverged)
+as the range baseline — a SHA rather than `upstream/master`, since CI has no
+upstream remote. It is an ancestor of `master`, so the `fetch-depth: 0` clone
+always has it.
+
+Both tests were mutation-checked: reintroducing the missing "Other Changes"
+bucket fails T1/T2 with the 12 dropped commits named, and restoring the
+unbounded-history fallback fails T6. If you change `make-changelog.sh`, confirm
+the suite still fails when the fix is reverted — a green suite that cannot fail
+is worth nothing.
 
 ### macOS version gating
 

@@ -19,6 +19,12 @@ jobs:
         # so the shallow default clone is not enough
         fetch-depth: 0
 
+    # Runs on pull requests too, and before Prepare release, so a regression
+    # in the changelog generator fails the job instead of cutting a release
+    # with commits silently missing from the notes.
+    - name: Test changelog generator
+      run: tests/test-changelog.sh
+
     - name: Install Autoconf
       run: brew install autoconf
 
