@@ -26,20 +26,48 @@ struct roles		rtm[] = {
     { "all",    kLSRolesAll },
 };
 
+/* full == 0 is the error-path form: synopsis only, plus a pointer to -h */
     static void
-usage( char *progname, FILE *out )
+usage( char *progname, FILE *out, int full )
 {
     fprintf( out, "usage: %s [ -hvV ] [ -c config ] [ -d uti ] [ -l uti ] "
 		  "[ -u uti ]\n", progname );
     fprintf( out, "usage: %s -s bundle_id { uti | url_scheme } "
 		  "[ role ]\n", progname );
     fprintf( out, "usage: %s { -e | -x } extension\n", progname );
+
+    if ( !full ) {
+	fprintf( out, "try '%s -h' for more information.\n", progname );
+	return;
+    }
+
     fprintf( out, "\n  -c config  read settings from config "
 		  "( \"-\" reads standard input ).\n" );
     fprintf( out, "             without -c, duti reads the first of\n" );
     fprintf( out, "             $XDG_CONFIG_HOME/duti/config, "
 		  "~/.config/duti/config,\n" );
     fprintf( out, "             or ~/.duti/config that exists.\n" );
+    fprintf( out, "  -d uti     print the default handler for uti.\n" );
+    fprintf( out, "  -e ext     print every UTI claiming filename "
+		  "extension ext.\n" );
+    fprintf( out, "  -h         print this help and exit.\n" );
+    fprintf( out, "  -l uti     list every handler registered for uti.\n" );
+    fprintf( out, "  -s         set a handler from the arguments that "
+		  "follow: two\n" );
+    fprintf( out, "             arguments means a URL scheme, three a "
+		  "uti, filename\n" );
+    fprintf( out, "             extension or MIME type.\n" );
+    fprintf( out, "  -u uti     print the description and type "
+		  "declaration of uti.\n" );
+    fprintf( out, "  -V         print the version and exit.\n" );
+    fprintf( out, "  -v         label output and report each handler "
+		  "as it is set.\n" );
+    fprintf( out, "  -x ext     print the default application for "
+		  "filename extension ext.\n" );
+    fprintf( out, "\n  role is one of none, viewer, editor, shell, all.\n" );
+    fprintf( out, "\n  see duti(1) for the settings file format, the "
+		  "settings plist format\n" );
+    fprintf( out, "  and examples.\n" );
 }
 
 /* also returns 0 on truncation, so a long $HOME can't yield a wrong path */
@@ -117,7 +145,7 @@ main( int ac, char *av[] )
 		return( duti_utis_for_extension( optarg ));
 
 	case 'h':	/* help: stdout, exit 0 */
-	    usage( av[ 0 ], stdout );
+	    usage( av[ 0 ], stdout, 1 );
 	    exit( 0 );
 
 	default:
@@ -151,7 +179,7 @@ main( int ac, char *av[] )
 
     /* must precede the switch: its -s cases return without checking err */
     if ( set && cfgpath != NULL ) {
-	usage( av[ 0 ], stderr );
+	usage( av[ 0 ], stderr, 0 );
 	exit( 1 );
     }
 
@@ -184,7 +212,7 @@ main( int ac, char *av[] )
     }
 
     if ( err ) {
-	usage( av[ 0 ], stderr );
+	usage( av[ 0 ], stderr, 0 );
 	exit( 1 );
     }
 
@@ -195,7 +223,7 @@ main( int ac, char *av[] )
 	}
 	path = cfgpath;
     } else if (( path = default_config_path()) == NULL ) {
-	usage( av[ 0 ], stderr );
+	usage( av[ 0 ], stderr, 0 );
 	exit( 1 );
     }
 

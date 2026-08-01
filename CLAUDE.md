@@ -157,6 +157,10 @@ See duti.1 for the interface; the non-obvious parts:
   what the XDG spec requires, not an oversight.
 - `-h` goes to stdout and exits 0; usage from an *error* goes to stderr with
   exit 1. `usage()` takes a `FILE *` for that reason — do not hardcode `stderr`.
+  Its `full` argument selects the form: 1 adds the option list and role values,
+  0 is the error form, three synopsis lines plus a pointer to `-h`. The option
+  list must stay in step with `duti.1`'s OPTIONS section, which covers the same
+  flags at length.
 - `-?` was deliberately not added.
 
 ### Known gaps worth knowing before "fixing" them
