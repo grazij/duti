@@ -1,3 +1,9 @@
+## 1.5.5+grazij.6
+
+### Other Changes
+
+* make the README a user manual (c51d818)
+
 ## 1.5.5+grazij.5
 
 ### BREAKING CHANGES
