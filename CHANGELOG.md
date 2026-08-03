@@ -1,3 +1,11 @@
+## 1.5.5+grazij.6
+
+### Other Changes
+
+* WIP (032ede3)
+* note that homebrew-core shadows the tap's duti (ef43a51)
+* make the README a user manual (c3f03da)
+
 ## 1.5.5+grazij.5
 
 ### BREAKING CHANGES
