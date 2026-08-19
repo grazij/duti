@@ -91,22 +91,3 @@ jobs:
       with:
         tag_name: v${{ steps.release.outputs.version }}
         body: ${{ steps.release.outputs.notes }}
-
-    # after the tag push, which is when GitHub can generate the tarball the
-    # checksum is taken from; after the release too, so a failure here cannot
-    # block shipping
-    - name: Update Homebrew formula
-      if: ${{ github.event_name == 'push' && steps.release.outputs.released == 'true' }}
-      run: |
-        set -euo pipefail
-        ./update-formula.sh "${{ steps.release.outputs.version }}"
-        if git diff --quiet -- Formula/duti.rb; then
-          echo "formula already current"
-          exit 0
-        fi
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add Formula/duti.rb
-        # chore: excluded from the next changelog and cannot trigger a release
-        git commit -m "chore(release): homebrew formula ${{ steps.release.outputs.version }} [skip ci]"
-        git push origin HEAD:master
