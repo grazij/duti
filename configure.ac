@@ -14,14 +14,14 @@ AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
 
-AC_CANONICAL_SYSTEM
+AC_CANONICAL_HOST
 DUTI_CHECK_SDK
 DUTI_CHECK_DEPLOYMENT_TARGET
 
 # function checks
 AC_CHECK_FUNC(strlcpy,have_strlcpy=yes,)
 if test x_$have_strlcpy = x_; then
-    AC_ERROR([required function strlcpy not found.])
+    AC_MSG_ERROR([required function strlcpy not found.])
 fi
 
 if test x_$OPTOPTS = x_; then
