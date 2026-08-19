@@ -3,7 +3,7 @@ class Duti < Formula
   homepage "https://github.com/grazij/duti"
   url "https://github.com/grazij/duti/archive/refs/tags/v1.5.5%2Bgrazij.6.tar.gz"
   version "1.5.5+grazij.6"
-  sha256 "488c5d4e9e6f201737444cdbfe1d8fb274d985cde1a49aebe1c1a1abf61a293c"
+  sha256 "8bb2591844a02abd48b56d3b4a988ce0c8368755a2a781d6872582103ae9fb32"
   license :public_domain
 
   # Version.detect reads a "+grazij.N" tarball name as "1", so `version` above
