@@ -98,6 +98,11 @@ of the three exists, `duti` prints usage and exits 1.
 | `duti -u public.html` | a UTI's description and type declaration |
 | `duti -e jpg` | every UTI claiming a filename extension |
 
+An extension no installed bundle declares has only a *dynamic* UTI, with no
+description and no type declaration. `duti -e` prints it in both the short form
+and the longer `public.data` conforming form — the latter is what LaunchServices
+and Spotlight actually record on the file.
+
 `duti -h` lists every option. See the man page for the full details.
 
 Examples

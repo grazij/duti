@@ -127,7 +127,10 @@ An extension no bundle declares has only a dynamic UTI, which carries no
 description and no type declaration.
 .B duti
 .BI \-e
-prints what it has and moves on.
+prints what it has and moves on; it also prints the longer,
+.B public.data
+conforming form of the dynamic identifier, which is the one LaunchServices
+and Spotlight record on the file itself.
 .B duti
 .BI \-u
 has nothing left to print for such a UTI and exits 2.
@@ -345,8 +348,10 @@ and exit.
 display the identifier, description and type declaration of every UTI
 declaring the filename extension
 .IR extension ,
-and exit. A description or declaration the system does not have is omitted
-rather than treated as an error.
+and exit. A dynamic identifier is also shown in its
+.B public.data
+conforming form; a description or declaration the system does not have is
+omitted rather than treated as an error.
 .TP 19
 .B \-h
 print usage, the option list and the role values to standard output, and

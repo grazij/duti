@@ -822,6 +822,7 @@ int
 duti_utis_for_extension(char* ext) {
     CFStringRef		cf_ext = NULL;
 	CFArrayRef		cf_array = NULL;
+	CFStringRef		cf_uti_conforming = NULL;
 	CFStringRef		cf_uti_description = NULL;
 	CFDictionaryRef	cf_uti_declaration = NULL;
 	CFIndex			index;
@@ -850,6 +851,20 @@ duti_utis_for_extension(char* ext) {
 		goto duti_utis_cleanup;
 		}
 		printf( "identifier: %s\n", tmp );
+
+		/* the short dynamic form omits the conformance, so it is not the
+		 * identifier LaunchServices stamps on a file. print that one too.
+		 */
+		if ( CFStringHasPrefix( cf_uti_identifier, CFSTR( "dyn." ))) {
+			cf_uti_conforming = UTTypeCreatePreferredIdentifierForTag(
+				kUTTagClassFilenameExtension, cf_ext, kUTTypeData );
+			if ( cf_uti_conforming != NULL ) {
+				if ( cf2c( cf_uti_conforming, tmp, sizeof( tmp )) == 0 ) {
+					printf( "identifier (public.data): %s\n", tmp );
+				}
+				CFRelease(cf_uti_conforming); cf_uti_conforming = NULL;
+			}
+		}
 
 		/* an extension no bundle declares has neither, and asking for
 		 * either is not an error worth abandoning the extension over.
@@ -880,6 +895,9 @@ duti_utis_cleanup:
     }
     if ( cf_array != NULL ) {
 	CFRelease( cf_array );
+    }
+    if ( cf_uti_conforming != NULL ) {
+	CFRelease( cf_uti_conforming );
     }
     if ( cf_uti_description != NULL ) {
 	CFRelease( cf_uti_description );
