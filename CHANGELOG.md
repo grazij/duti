@@ -1,3 +1,19 @@
+## 1.5.5+grazij.7
+
+### Features
+
+* print the conforming form of a dynamic identifier (b5d7c44)
+
+### Bug Fixes
+
+* keep -e going when an extension has no declaration (d9772af)
+
+### Other Changes
+
+* stop tracking the autotools helper scripts (5d29fad)
+* replace the four obsolete autoconf macros (6231d0b)
+* drop the in-repo formula and its updater (27485ed)
+
 ## 1.5.5+grazij.6
 
 ### Other Changes
