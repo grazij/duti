@@ -782,17 +782,24 @@ duti_utis( char * uti ) {
     }
 
 	cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
-	if ( cf2c( cf_uti_description, tmp, sizeof( tmp )) != 0 ) {
+	if ( cf_uti_description != NULL ) {
+		if ( cf2c( cf_uti_description, tmp, sizeof( tmp )) == 0 ) {
+			printf( "description: %s\n", tmp );
+		}
+		CFRelease(cf_uti_description); cf_uti_description = NULL;
+	}
+
+	cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
+	if ( cf_uti_declaration != NULL ) {
+		printf( "declaration: {\n" );
+		CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
+		CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
+		printf( "}\n" );
+	} else {
+		/* a dynamic UTI has neither, so there is nothing left to print */
+		fprintf( stderr, "%s: no type declaration\n", uti );
 		goto duti_utis_cleanup;
 	}
-	CFRelease(cf_uti_description); cf_uti_description = NULL;
-	printf( "description: %s\n", tmp );
-	
-	cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
-	printf( "declaration: {\n" );
-	CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
-	CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
-	printf( "}\n" );
 
 	/* success */
     rc = 0;
@@ -844,18 +851,24 @@ duti_utis_for_extension(char* ext) {
 		}
 		printf( "identifier: %s\n", tmp );
 
+		/* an extension no bundle declares has neither, and asking for
+		 * either is not an error worth abandoning the extension over.
+		 */
 		cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
-		if ( cf2c( cf_uti_description, tmp, sizeof( tmp )) != 0 ) {
-		goto duti_utis_cleanup;
+		if ( cf_uti_description != NULL ) {
+			if ( cf2c( cf_uti_description, tmp, sizeof( tmp )) == 0 ) {
+				printf( "description: %s\n", tmp );
+			}
+			CFRelease(cf_uti_description); cf_uti_description = NULL;
 		}
-		CFRelease(cf_uti_description); cf_uti_description = NULL;
-		printf( "description: %s\n", tmp );
 
 		cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
-		printf( "declaration: {\n" );
-		CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
-		CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
-		printf( "}\n" );
+		if ( cf_uti_declaration != NULL ) {
+			printf( "declaration: {\n" );
+			CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
+			CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
+			printf( "}\n" );
+		}
 	}
 
     /* success */

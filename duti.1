@@ -123,6 +123,15 @@ that claims the filename extension
 .IR extension .
 Neither option changes any handler.
 .sp
+An extension no bundle declares has only a dynamic UTI, which carries no
+description and no type declaration.
+.B duti
+.BI \-e
+prints what it has and moves on.
+.B duti
+.BI \-u
+has nothing left to print for such a UTI and exits 2.
+.sp
 See
 .B EXAMPLES
 below for usage cases.
@@ -335,8 +344,9 @@ and exit.
 .BI \-e\  extension
 display the identifier, description and type declaration of every UTI
 declaring the filename extension
-.I extension
-and exit.
+.IR extension ,
+and exit. A description or declaration the system does not have is omitted
+rather than treated as an error.
 .TP 19
 .B \-h
 print usage, the option list and the role values to standard output, and
@@ -354,7 +364,9 @@ set the handler from data provided on the command line.
 .BI \-u\  uti
 display the description and type declaration of
 .I uti
-and exit.
+and exit. Exits 2 if
+.I uti
+has no type declaration, as a dynamic UTI does not.
 .TP 19
 .B \-V
 print version number and exit.
